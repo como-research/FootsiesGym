@@ -5,6 +5,11 @@ from gymnasium import spaces
 from ray.rllib import env
 
 from footsies import encoder, typing
+import os
+import platform
+import socket
+import subprocess
+
 from footsies.game import constants, footsies_game
 
 
@@ -72,6 +77,8 @@ class FootsiesEnv(env.MultiAgentEnv):
             observation_delay=observation_delay // self.frame_skip
         )
 
+
+        
         port = config.get("port", None)
 
         # we'll start game servers at 50051 for training
@@ -86,6 +93,12 @@ class FootsiesEnv(env.MultiAgentEnv):
                 + config.get("vector_index", 0)
             )
 
+        # If specified, we'll launch the binaries from the environment itself.
+        self.server_process = None
+        launch_binaries = config.get("launch_binaries", False)
+        if launch_binaries:
+            self._launch_binaries(port=port)
+
         self.game = footsies_game.FootsiesGame(
             host=config.get("host", "localhost"),
             port=port,
@@ -96,6 +109,71 @@ class FootsiesEnv(env.MultiAgentEnv):
             "p1": -1,
             "p2": -1,
         }
+
+    def _is_port_in_use(self, port: int) -> bool:
+        """Check if a port is already in use."""
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            try:
+                sock.bind(('localhost', port))
+                return False
+            except OSError:
+                return True
+
+    def _launch_binaries(self, port: int):
+        # Check if we're on a supported platform
+        if platform.system() in ["Windows", "Darwin"]:
+            raise RuntimeError(
+                "Binary launching is only supported on Linux. "
+                "Please launch the footsies server manually or use a Linux system."
+            )
+        
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        binary_path = os.path.join(project_root, "binaries", "footsies_binaries", "footsies.x86_64")
+
+        if not os.path.exists(binary_path):
+            raise FileNotFoundError(
+                f"Could not find footsies binary at {binary_path}. "
+                "Did you run ./setup.sh?"
+            )
+        
+        # We'll also want to make sure the binary is executable
+        if not os.access(binary_path, os.X_OK):
+            # If not, make it executable
+            os.chmod(binary_path, 0o755)
+
+        # Check if the port is already in use
+        if self._is_port_in_use(port):
+            print(f"Port {port} is already in use. Skipping binary launch.")
+            return
+
+        command = [binary_path, "--port", str(port)]
+        
+        # Launch the process in the background. We can store the process if we need to manage it later.
+        self.server_process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print(f"Launched footsies binary on port {port}.")
+
+    def close(self):
+        """Clean up resources when the environment is closed."""
+        if hasattr(self, 'server_process') and self.server_process is not None:
+            try:
+                self.server_process.terminate()
+                # Give it a moment to terminate gracefully
+                self.server_process.wait(timeout=5)
+                print(f"Terminated footsies server process (PID: {self.server_process.pid}).")
+            except subprocess.TimeoutExpired:
+                # Force kill if it doesn't terminate gracefully
+                self.server_process.kill()
+                self.server_process.wait()
+                print(f"Force killed footsies server process (PID: {self.server_process.pid}).")
+            except Exception as e:
+                print(f"Error terminating server process: {e}")
+            finally:
+                self.server_process = None
+
+    def __del__(self):
+        """Ensure cleanup happens when the object is garbage collected."""
+        self.close()
+
 
     def get_obs(self, game_state):
         if self.use_build_encoding:

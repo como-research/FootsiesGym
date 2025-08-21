@@ -57,8 +57,10 @@ brew install cmake
 ## Training
 
 ### Game Servers
+If you are on a Linux system, run `setup.sh` to unpack the binaries then run skip to the training procedure. Otherwise, follow the steps below. 
 
-Before training, you'll need to launch the headless game servers. Scripts are provided to do so in `scripts/start_local_{mac, linux}_servers.sh`, but you must first unpack the binaries that are included into the `binaries/` directory (the launch scripts assume this location).
+
+Before training, you'll need to launch the headless game servers. Scripts are provided to do so in `scripts/start_local_{mac, linux}_servers.sh`, but you must first unpack the binaries that are included into the `binaries/` directory (the launch scripts assume this location). _Important!_ If you are launching game servers manually, be sure to set `launch_binaries` to `False` in the environment configuration. 
 
 ```bash
 ./scripts/start_local_{mac, linux}_servers.sh <num-train-servers> <num-eval-servers>

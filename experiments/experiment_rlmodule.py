@@ -79,7 +79,8 @@ class Experiment:
                 env_config={
                     "max_t": 4000,
                     "frame_skip": 4,
-                    "observation_delay": 0,
+                    "observation_delay": 16,
+                    "launch_binaries": True,
                 },
             )
             .framework("torch")
