@@ -122,6 +122,7 @@ class Experiment:
                     "observation_delay": 16,
                     "num_envs_per_worker": self.NUM_ENVS_PER_ENV_RUNNER,
                     "reward_guard_break": True,
+                    "launch_binaries": True,
                 },
             )
             .api_stack(
