@@ -6,6 +6,7 @@ from ray.rllib import env
 
 from footsies import encoder, typing
 import os
+import platform
 import socket
 import subprocess
 
@@ -119,6 +120,13 @@ class FootsiesEnv(env.MultiAgentEnv):
                 return True
 
     def _launch_binaries(self, port: int):
+        # Check if we're on a supported platform
+        if platform.system() in ["Windows", "Darwin"]:
+            raise RuntimeError(
+                "Binary launching is only supported on Linux. "
+                "Please launch the footsies server manually or use a Linux system."
+            )
+        
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         binary_path = os.path.join(project_root, "binaries", "footsies_binaries", "footsies.x86_64")
 
