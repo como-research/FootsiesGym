@@ -93,7 +93,7 @@ class FootsiesEnv(env.MultiAgentEnv):
             start_port = 40050 if self.evaluation else 50050
             port = (
                 start_port
-                + int(config.worker_index)
+                + int(config.get("worker_index", 0))
                 * config.get("num_envs_per_worker", 1)
                 + config.get("vector_index", 0)
             )

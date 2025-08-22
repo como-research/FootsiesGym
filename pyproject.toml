@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "footsies-gym"
-version = "0.1.0"
+version = "0.1.2"
 description = "A reinforcement learning environment for HiFight's Footsies game"
 readme = "README.md"
 license = "MIT"
@@ -32,19 +32,18 @@ classifiers = [
 requires-python = ">=3.8"
 dependencies = [
     "gymnasium",
-    "numpy>=1.20.0",
+    "numpy>=1.24.0",
     "pettingzoo>=1.24.0",
     "grpcio>=1.60.0",
     "grpcio-tools>=1.60.0",
     "absl-py",
+    "ray[rllib]>=2.46.0",
     "natsort",
     "pyarrow>=15.0.0",
 ]
 
 [project.optional-dependencies]
 training = [
-    "ray[rllib]>=2.40.0",
-    "torch>=2.0.0",
     "wandb>=0.15.0",
 ]
 dev = [
@@ -67,10 +66,6 @@ Documentation = "https://github.com/cmcdonald/FootsiesGym#readme"
 [tool.setuptools]
 packages = ["footsiesgym", "footsiesgym.footsies", "footsiesgym.footsies.game"]
 include-package-data = true
-
-[tool.setuptools.packages.find]
-where = ["."]  
-exclude = ["footsiesgym.binaries*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.proto", "*.json"]
