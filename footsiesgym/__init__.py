@@ -12,7 +12,7 @@ __version__ = "0.1.0"
 __all__ = ["FootsiesEnv", "encoder", "typing", "make"]
 
 
-def make(config: dict, platform: str = "linux", launch_binaries: bool = True):
+def make(config: dict | None = None, platform: str = "linux", launch_binaries: bool = True):
     """
     Create a FootsiesGym environment.
     
@@ -31,5 +31,16 @@ def make(config: dict, platform: str = "linux", launch_binaries: bool = True):
             "Windows TBD."
         )
     
-    config = {"platform": platform, "launch_binaries": launch_binaries, **config}
+    config = {
+        "platform": platform, 
+        "launch_binaries": launch_binaries,
+        "max_t": 4000,
+        "frame_skip": 4,
+        "observation_delay": 16,
+        "reward_guard_break": False,
+    }
+    
+    if config is not None:
+        config.update(config)
+
     return FootsiesEnv(config=config)
