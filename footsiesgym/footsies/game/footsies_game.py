@@ -4,7 +4,7 @@ import time
 import grpc
 import numpy as np
 
-from experimentation.utils import utils
+from footsiesgym.footsies import utils
 from footsiesgym.footsies.game import constants
 from footsiesgym.footsies.game.proto import footsies_service_pb2 as footsies_pb2
 from footsiesgym.footsies.game.proto import footsies_service_pb2_grpc as footsies_pb2_grpc
