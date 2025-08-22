@@ -8,10 +8,11 @@ include pyproject.toml
 # Explicitly exclude the entire binaries directory
 prune footsiesgym/binaries
 
-# Include protocol buffer files
+# Include protocol buffer files and generated Python files
 recursive-include footsiesgym/protoc *.proto
 recursive-include footsiesgym/footsies *.proto
 recursive-include footsiesgym/footsies *.json
+recursive-include footsiesgym/footsies/game/proto *.py
 
 # Include configuration files
 include .gitignore
