@@ -1,5 +1,5 @@
 from typing import Any
-
+import time 
 import numpy as np
 from gymnasium import spaces
 from ray.rllib import env
@@ -200,6 +200,7 @@ class FootsiesEnv(env.MultiAgentEnv):
         # Launch the process in the background. We can store the process if we need to manage it later.
         self.server_process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         print(f"Launched footsies binary on port {port}.")
+        time.sleep(5)
 
     def close(self):
         """Clean up resources when the environment is closed."""

@@ -4,13 +4,8 @@ include LICENSE.txt
 include requirements.txt
 include pyproject.toml
 
-# Include binary files and game assets
+# Include only zip files from binaries (users will extract as needed)
 recursive-include footsiesgym/binaries *.zip
-recursive-include footsiesgym/binaries *.x86_64
-recursive-include footsiesgym/binaries *.so
-recursive-include footsiesgym/binaries *.dll
-recursive-include footsiesgym/binaries *.dylib
-recursive-include footsiesgym/binaries *
 
 # Include protocol buffer files
 recursive-include footsiesgym/protoc *.proto
