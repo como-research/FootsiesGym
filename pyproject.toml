@@ -68,8 +68,12 @@ Documentation = "https://github.com/cmcdonald/FootsiesGym#readme"
 packages = ["footsiesgym", "footsiesgym.footsies", "footsiesgym.footsies.game"]
 include-package-data = true
 
+[tool.setuptools.packages.find]
+where = ["."]  
+exclude = ["footsiesgym.binaries*"]
+
 [tool.setuptools.package-data]
-"*" = ["*.zip", "*.x86_64", "*.so", "*.dll", "*.dylib", "*.proto"]
+"*" = ["*.proto", "*.json"]
 
 [tool.black]
 line-length = 88
