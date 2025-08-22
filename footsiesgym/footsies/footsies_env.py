@@ -12,6 +12,7 @@ import subprocess
 import zipfile
 
 from .game import constants, footsies_game
+from ..binary_manager import get_binary_manager
 
 
 class FootsiesEnv(env.MultiAgentEnv):
@@ -137,19 +138,29 @@ class FootsiesEnv(env.MultiAgentEnv):
         binary_path = os.path.join(project_root, "binaries", "footsies_binaries", "footsies.x86_64")
 
         if not os.path.exists(binary_path):
-            # Automatically extract the zip file if binary doesn't exist
-            zip_path = os.path.join(project_root, self.LINUX_ZIP_PATH_HEADLESS if self.headless else self.LINUX_ZIP_PATH_WINDOWED)
-            binaries_dir = os.path.join(project_root, "binaries")
+            # Use binary manager to download and extract binaries from Git LFS
+            binary_manager = get_binary_manager()
             
-            if not os.path.exists(zip_path):
+            # Ensure binaries are available (download if needed)
+            if not binary_manager.ensure_binaries_available("linux"):
                 raise FileNotFoundError(
-                    f"Could not find zip file at {zip_path}. "
-                    "Please ensure the footsies_linux_server_021725.zip file exists in the binaries directory."
+                    "Failed to download footsies binaries from Git LFS. "
+                    "Please check your internet connection and try again."
+                )
+            
+            # Get the appropriate zip file path
+            zip_path = binary_manager.get_binary_path("linux", windowed=not self.headless)
+            if not zip_path or not zip_path.exists():
+                raise FileNotFoundError(
+                    f"Could not find {'headless' if self.headless else 'windowed'} Linux binary after download."
                 )
             
             print(f"Extracting footsies binaries from {zip_path}...")
             
-            # Extract the zip file
+            # Extract the zip file to the package binaries directory
+            binaries_dir = os.path.join(project_root, "binaries")
+            os.makedirs(binaries_dir, exist_ok=True)
+            
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(binaries_dir)
             

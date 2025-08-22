@@ -4,8 +4,7 @@ include LICENSE.txt
 include requirements.txt
 include pyproject.toml
 
-# Include only zip files from binaries (users will extract as needed)
-recursive-include footsiesgym/binaries *.zip
+# Binaries are downloaded from Git LFS - not included in package
 
 # Include protocol buffer files
 recursive-include footsiesgym/protoc *.proto
