@@ -14,11 +14,11 @@ class BinaryManager:
     
     # Direct download URLs for binary files
     # Using GitHub raw files as the primary source
-    DOWNLOAD_BASE_URL = "https://github.com/cmcdonald/FootsiesGym/raw/main/footsiesgym/binaries"
+    DOWNLOAD_BASE_URL = "https://github.com/chasemcd/FootsiesGym/raw/main/binaries"
     
     # Fallback URLs in case primary fails
     FALLBACK_URLS = [
-        "https://raw.githubusercontent.com/cmcdonald/FootsiesGym/main/footsiesgym/binaries",
+        "https://raw.githubusercontent.com/chasemcd/FootsiesGym/main/binaries",
     ]
     
     BINARY_FILES = {
