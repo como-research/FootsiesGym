@@ -10,7 +10,7 @@ from ray.rllib.policy import Policy
 from ray.rllib.utils.metrics.metrics_logger import MetricsLogger
 from ray.rllib.utils.typing import EpisodeType, PolicyID
 
-from footsies.game import constants
+from footsiesgym.footsies.game import constants
 
 if TYPE_CHECKING:
     from ray.rllib.env.env_runner import EnvRunner

@@ -4,8 +4,8 @@ from typing import Any
 
 import numpy as np
 
-from footsies.game import constants
-from footsies.game.proto import footsies_service_pb2 as footsies_pb2
+from footsiesgym.footsies.game import constants
+from footsiesgym.footsies.game.proto import footsies_service_pb2 as footsies_pb2
 
 
 class EncoderMethods:

@@ -1,0 +1,85 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "footsies-gym"
+version = "0.1.2"
+description = "A reinforcement learning environment for HiFight's Footsies game"
+readme = "README.md"
+license = "MIT"
+authors = [
+    {name = "Chase McDonald", email = "cmcdonald@example.com"}
+]
+maintainers = [
+    {name = "Chase McDonald", email = "cmcdonald@example.com"}
+]
+keywords = ["reinforcement learning", "multi-agent", "fighting game", "footsies", "gymnasium"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Games/Entertainment :: Simulation",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "gymnasium",
+    "numpy>=1.24.0",
+    "pettingzoo>=1.24.0",
+    "grpcio>=1.60.0",
+    "grpcio-tools>=1.60.0",
+    "absl-py",
+    "ray[rllib]>=2.46.0",
+    "natsort",
+    "pyarrow>=15.0.0",
+]
+
+[project.optional-dependencies]
+training = [
+    "wandb>=0.15.0",
+]
+dev = [
+    "pre-commit",
+    "pytest",
+    "black",
+    "isort",
+    "flake8",
+]
+all = [
+    "footsies-gym[training,dev]"
+]
+
+[project.urls]
+Homepage = "https://github.com/cmcdonald/FootsiesGym"
+Repository = "https://github.com/cmcdonald/FootsiesGym"
+Documentation = "https://github.com/cmcdonald/FootsiesGym#readme"
+"Bug Tracker" = "https://github.com/cmcdonald/FootsiesGym/issues"
+
+[tool.setuptools]
+packages = ["footsiesgym", "footsiesgym.footsies", "footsiesgym.footsies.game"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"*" = ["*.proto", "*.json"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.pytest.ini_options]
+testpaths = ["testing"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"

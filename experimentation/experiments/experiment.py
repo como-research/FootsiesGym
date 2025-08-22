@@ -18,10 +18,10 @@ from ray.tune.result import (
 )
 from ray.tune.search.hyperopt import HyperOptSearch
 
-from callbacks import add_policies, script_metrics, winrates
-from footsies import footsies_env
-from models.modelv2 import back, lstm_model, noop
-from utils import matchmaking
+from experimentation.callbacks import add_policies, script_metrics, winrates
+from footsiesgym.footsies import footsies_env
+from experimentation.models.modelv2 import back, lstm_model, noop
+from experimentation.utils import matchmaking
 
 
 def eval_policy_mapping_fn(*args, **kwargs): ...

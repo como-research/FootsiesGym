@@ -1,20 +1,25 @@
 from typing import Any
-
+import time 
 import numpy as np
 from gymnasium import spaces
 from ray.rllib import env
 
-from footsies import encoder, typing
+from . import encoder, typing
 import os
 import platform
 import socket
 import subprocess
+import zipfile
 
-from footsies.game import constants, footsies_game
+from .game import constants, footsies_game
+from ..binary_manager import get_binary_manager
 
 
 class FootsiesEnv(env.MultiAgentEnv):
     metadata = {"render.modes": ["human"]}
+    LINUX_ZIP_PATH_HEADLESS = "binaries/footsies_linux_server_021725.zip"
+    LINUX_ZIP_PATH_WINDOWED = "binaries/footsies_linux_windowed_021725.zip"
+    LINUX_BINARIES_PATH = "binaries/footsies_binaries/footsies.x86_64"
     SPECIAL_CHARGE_FRAMES = 60
     GUARD_BREAK_REWARD = 0.3
 
@@ -80,7 +85,7 @@ class FootsiesEnv(env.MultiAgentEnv):
 
         
         port = config.get("port", None)
-
+        self.headless = config.get("headless", True)
         # we'll start game servers at 50051 for training
         # and 40051 for evaluation. Worker index starts at
         # 1, so we won't see 40050/50050.
@@ -88,7 +93,7 @@ class FootsiesEnv(env.MultiAgentEnv):
             start_port = 40050 if self.evaluation else 50050
             port = (
                 start_port
-                + int(config.worker_index)
+                + int(config.get("worker_index", 0))
                 * config.get("num_envs_per_worker", 1)
                 + config.get("vector_index", 0)
             )
@@ -121,20 +126,75 @@ class FootsiesEnv(env.MultiAgentEnv):
 
     def _launch_binaries(self, port: int):
         # Check if we're on a supported platform
-        if platform.system() in ["Windows", "Darwin"]:
+        if platform.system().lower() in ["windows", "darwin"]:
             raise RuntimeError(
                 "Binary launching is only supported on Linux. "
                 "Please launch the footsies server manually or use a Linux system."
             )
+
+        # Check to ensure the linux binaries exist in binaries/footsies_binaries/footsies.x86_64
         
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         binary_path = os.path.join(project_root, "binaries", "footsies_binaries", "footsies.x86_64")
 
         if not os.path.exists(binary_path):
-            raise FileNotFoundError(
-                f"Could not find footsies binary at {binary_path}. "
-                "Did you run ./setup.sh?"
-            )
+            # Use binary manager to download and extract binaries from Git LFS
+            binary_manager = get_binary_manager()
+            
+            # Ensure binaries are available (download if needed)
+            if not binary_manager.ensure_binaries_available("linux"):
+                raise FileNotFoundError(
+                    "Failed to download footsies binaries from Git LFS. "
+                    "Please check your internet connection and try again."
+                )
+            
+            # Get the appropriate zip file path
+            zip_path = binary_manager.get_binary_path("linux", windowed=not self.headless)
+            if not zip_path or not zip_path.exists():
+                raise FileNotFoundError(
+                    f"Could not find {'headless' if self.headless else 'windowed'} Linux binary after download."
+                )
+            
+            print(f"Extracting footsies binaries from {zip_path}...")
+            
+            # Extract the zip file to the package binaries directory
+            binaries_dir = os.path.join(project_root, "binaries")
+            os.makedirs(binaries_dir, exist_ok=True)
+            
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(binaries_dir)
+            
+            # Find the extracted folder and rename it to footsies_binaries
+            extracted_items = os.listdir(binaries_dir)
+            extracted_folder = None
+            
+            # Look for a folder that was just extracted (not the existing footsies_binaries)
+            for item in extracted_items:
+                item_path = os.path.join(binaries_dir, item)
+                if (os.path.isdir(item_path) and 
+                    item != "footsies_binaries" and 
+                    not item.endswith(".zip") and
+                    "footsies" in item.lower()):
+                    extracted_folder = item
+                    break
+            
+            if extracted_folder:
+                old_path = os.path.join(binaries_dir, extracted_folder)
+                new_path = os.path.join(binaries_dir, "footsies_binaries")
+                
+                # Remove existing footsies_binaries if it exists
+                if os.path.exists(new_path):
+                    import shutil
+                    shutil.rmtree(new_path)
+                
+                os.rename(old_path, new_path)
+                print(f"Renamed {extracted_folder} to footsies_binaries")
+            
+            # Verify the binary now exists
+            if not os.path.exists(binary_path):
+                raise FileNotFoundError(
+                    f"Failed to extract or find footsies binary at {binary_path} after extraction."
+                )
         
         # We'll also want to make sure the binary is executable
         if not os.access(binary_path, os.X_OK):
@@ -151,6 +211,7 @@ class FootsiesEnv(env.MultiAgentEnv):
         # Launch the process in the background. We can store the process if we need to manage it later.
         self.server_process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         print(f"Launched footsies binary on port {port}.")
+        time.sleep(5)
 
     def close(self):
         """Clean up resources when the environment is closed."""

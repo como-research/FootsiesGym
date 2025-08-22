@@ -8,9 +8,9 @@ from ray.rllib.utils import policy as rllib_policy_utils
 from ray.rllib.utils import typing as rllib_typing
 from scipy import special
 
-from components import module_repository
-from footsies import footsies_env
-from footsies.game.constants import EnvActions
+from experimentation.components import module_repository
+from footsiesgym.footsies import footsies_env
+from footsiesgym.footsies.game.constants import EnvActions
 
 try:
     import pygame

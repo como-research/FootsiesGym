@@ -4,10 +4,10 @@ import time
 import grpc
 import numpy as np
 
-import utils.utils as utils
-from footsies.game import constants
-from footsies.game.proto import footsies_service_pb2 as footsies_pb2
-from footsies.game.proto import footsies_service_pb2_grpc as footsies_pb2_grpc
+from experimentation.utils import utils
+from footsiesgym.footsies.game import constants
+from footsiesgym.footsies.game.proto import footsies_service_pb2 as footsies_pb2
+from footsiesgym.footsies.game.proto import footsies_service_pb2_grpc as footsies_pb2_grpc
 
 log = logging.getLogger(__name__)
 

@@ -4,7 +4,7 @@ import warnings
 
 import grpc
 
-from footsies.game.proto import (
+from footsiesgym.footsies.game.proto import (
     footsies_service_pb2 as env_dot_game_dot_proto_dot_footsies__service__pb2,
 )
 

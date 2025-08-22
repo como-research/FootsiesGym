@@ -1,20 +1,17 @@
 from absl import app, flags
 
-from experiments import experiment
+from experimentation.experiments import experiment_rlmodule
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("experiment_name", None, "Name of the experiment")
 flags.DEFINE_boolean("debug", False, "Debug mode flag")
-flags.DEFINE_boolean("tune", False, "Tune mode flag")
 
 
 def main(*args, **kwargs):
-    print(f"Starting experiment {FLAGS.experiment_name}, Tuning: {FLAGS.tune}")
-    experiment.Experiment(
+    experiment_rlmodule.Experiment(
         config={
             "debug": FLAGS.debug,
             "experiment_name": FLAGS.experiment_name,
-            "tune": FLAGS.tune,
         }
     ).run()
 
