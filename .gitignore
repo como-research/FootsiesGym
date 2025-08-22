@@ -8,6 +8,7 @@ plots/
 FootsiesTrajectories/
 footsiesgym/binaries/footsies*/
 !footsiesgym/binaries/*.zip
+binaries/footsies_binaries/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
