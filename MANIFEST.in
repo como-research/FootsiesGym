@@ -1,0 +1,42 @@
+# Include package metadata files
+include README.md
+include LICENSE.txt
+include requirements.txt
+include pyproject.toml
+
+# Include binary files and game assets
+recursive-include footsiesgym/binaries *.zip
+recursive-include footsiesgym/binaries *.x86_64
+recursive-include footsiesgym/binaries *.so
+recursive-include footsiesgym/binaries *.dll
+recursive-include footsiesgym/binaries *.dylib
+recursive-include footsiesgym/binaries *
+
+# Include protocol buffer files
+recursive-include footsiesgym/protoc *.proto
+recursive-include footsiesgym/footsies *.proto
+recursive-include footsiesgym/footsies *.json
+
+# Include configuration files
+include .gitignore
+include setup.sh
+
+# Exclude development and build artifacts
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude *.so
+global-exclude .git*
+global-exclude .DS_Store
+global-exclude *.egg-info
+
+# Exclude experiment results and checkpoints
+exclude ray_results
+recursive-exclude ray_results *
+recursive-exclude checkpoints *
+exclude *.log
+
+# Exclude development directories that shouldn't be in the package
+prune .git
+prune experiments
+prune scripts
+prune testing

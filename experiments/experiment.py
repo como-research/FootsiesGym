@@ -19,7 +19,7 @@ from ray.tune.result import (
 from ray.tune.search.hyperopt import HyperOptSearch
 
 from callbacks import add_policies, script_metrics, winrates
-from footsies import footsies_env
+from footsiesgym.footsies import footsies_env
 from models.modelv2 import back, lstm_model, noop
 from utils import matchmaking
 

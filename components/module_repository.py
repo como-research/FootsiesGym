@@ -11,7 +11,7 @@ from ray.rllib.examples._old_api_stack.policy import random_policy
 # from models.rl_modules import noop
 from ray.rllib.utils.framework import try_import_tf, try_import_torch
 
-from footsies import footsies_env
+from footsiesgym.footsies import footsies_env
 from models.modelv2 import noop
 
 tf1, tf, tfv = try_import_tf()

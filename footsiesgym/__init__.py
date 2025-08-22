@@ -1,0 +1,35 @@
+"""
+FootsiesGym - A reinforcement learning environment for HiFight's Footsies game.
+
+This package provides a Gymnasium-compatible environment for training reinforcement
+learning agents on the Footsies fighting game.
+"""
+
+from .footsies.footsies_env import FootsiesEnv
+from .footsies import encoder, typing
+
+__version__ = "0.1.0"
+__all__ = ["FootsiesEnv", "encoder", "typing", "make"]
+
+
+def make(config: dict, platform: str = "linux", launch_binaries: bool = True):
+    """
+    Create a FootsiesGym environment.
+    
+    Args:
+        config: Configuration dictionary for the environment
+        platform: Platform to run on (currently only "linux" supported for auto-launch)
+        launch_binaries: Whether to automatically launch game binaries
+        
+    Returns:
+        FootsiesEnv: The configured environment instance
+    """
+    if launch_binaries:
+        assert platform == "linux", (
+            "Only linux is supported for automated binary launching. "
+            "Create the environment manually and launch binaries by hand to use MacOS. "
+            "Windows TBD."
+        )
+    
+    config = {"platform": platform, "launch_binaries": launch_binaries, **config}
+    return FootsiesEnv(config=config)

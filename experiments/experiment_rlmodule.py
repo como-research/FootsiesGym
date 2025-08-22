@@ -18,7 +18,7 @@ from ray.tune.result import (
 )
 
 from callbacks import add_policies
-from footsies import footsies_env
+from footsiesgym.footsies import footsies_env
 from models.rl_modules import back, lstm_module, noop
 from utils import matchmaking
 

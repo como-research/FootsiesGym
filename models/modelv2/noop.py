@@ -10,7 +10,7 @@ from ray.rllib.policy.sample_batch import SampleBatch
 from ray.rllib.utils.annotations import override
 from ray.rllib.utils.typing import ModelWeights, TensorStructType, TensorType
 
-from footsies.game import constants
+from footsiesgym.footsies.game import constants
 
 
 class NoOpPolicy(Policy):
