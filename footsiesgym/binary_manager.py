@@ -2,9 +2,9 @@
 Binary manager for FootsiesGym - handles automatic binary downloads.
 """
 
-import os
 import urllib.request
 import urllib.error
+import fcntl
 from pathlib import Path
 from typing import Optional
 
@@ -37,6 +37,8 @@ class BinaryManager:
         """
         Ensure the required binaries are available for the given platform.
         Downloads them automatically if they don't exist locally.
+        Uses file locking to prevent race conditions when multiple processes
+        try to download simultaneously.
         
         Args:
             platform: Target platform ("linux" or "mac")
@@ -57,15 +59,47 @@ class BinaryManager:
             print(f"✅ All {platform} binaries are available")
             return True
         
-        print(f"📥 Downloading missing {platform} binaries: {missing_files}")
+        # Use file locking to prevent multiple processes from downloading simultaneously
+        lock_file = self.binaries_dir / ".download_lock"
         
-        # Download missing files automatically
-        success = True
-        for filename in missing_files:
-            if not self._download_binary(filename):
-                success = False
-        
-        return success
+        try:
+            # Create lock file and acquire exclusive lock
+            with open(lock_file, 'w') as lock_fd:
+                print(f"🔒 Acquiring download lock for {platform} binaries...")
+                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
+                
+                # Re-check if files exist after acquiring lock (another process might have downloaded them)
+                missing_files = []
+                for filename in required_files:
+                    file_path = self.binaries_dir / filename
+                    if not file_path.exists():
+                        missing_files.append(filename)
+                
+                if not missing_files:
+                    print(f"✅ All {platform} binaries are now available (downloaded by another process)")
+                    return True
+                
+                print(f"📥 Downloading missing {platform} binaries: {missing_files}")
+                
+                # Download missing files
+                success = True
+                for filename in missing_files:
+                    if not self._download_binary(filename):
+                        success = False
+                
+                print(f"🔓 Releasing download lock for {platform} binaries")
+                return success
+                
+        except Exception as e:
+            print(f"❌ Error during binary download: {e}")
+            return False
+        finally:
+            # Clean up lock file
+            try:
+                if lock_file.exists():
+                    lock_file.unlink()
+            except:
+                pass  # Ignore cleanup errors
     
     def _get_required_files(self, platform: str) -> list[str]:
         """Get the list of required binary files for a platform."""
