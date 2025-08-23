@@ -19,7 +19,6 @@ class FootsiesEnv(env.MultiAgentEnv):
     metadata = {"render.modes": ["human"]}
     LINUX_ZIP_PATH_HEADLESS = "binaries/footsies_linux_server_021725.zip"
     LINUX_ZIP_PATH_WINDOWED = "binaries/footsies_linux_windowed_021725.zip"
-    LINUX_BINARIES_PATH = "binaries/footsies_binaries/footsies.x86_64"
     SPECIAL_CHARGE_FRAMES = 60
     GUARD_BREAK_REWARD = 0.3
 
@@ -132,68 +131,28 @@ class FootsiesEnv(env.MultiAgentEnv):
                 "Please launch the footsies server manually or use a Linux system."
             )
 
-        # Check to ensure the linux binaries exist in binaries/footsies_binaries/footsies.x86_64
+        # Check to ensure the linux binaries exist in the appropriate directory based on headless setting
         
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        binary_path = os.path.join(project_root, "binaries", "footsies_binaries", "footsies.x86_64")
+        binary_subdir = "footsies_binaries_headless" if self.headless else "footsies_binaries_windowed"
+        binary_path = os.path.join(project_root, "binaries", binary_subdir, "footsies.x86_64")
 
         if not os.path.exists(binary_path):
-            # Use binary manager to download and extract binaries from Git LFS
+            # Use binary manager to download and extract binaries atomically
             binary_manager = get_binary_manager()
             
-            # Ensure binaries are available (download if needed)
-            if not binary_manager.ensure_binaries_available("linux"):
+            # Ensure binaries are downloaded and extracted (with file locking to prevent race conditions)
+            binaries_dir = os.path.join(project_root, "binaries")
+            if not binary_manager.ensure_binaries_extracted("linux", target_dir=binaries_dir, headless=self.headless):
                 raise FileNotFoundError(
-                    "Failed to download footsies binaries from Git LFS. "
+                    "Failed to download and extract footsies binaries. "
                     "Please check your internet connection and try again."
                 )
-            
-            # Get the appropriate zip file path
-            zip_path = binary_manager.get_binary_path("linux", windowed=not self.headless)
-            if not zip_path or not zip_path.exists():
-                raise FileNotFoundError(
-                    f"Could not find {'headless' if self.headless else 'windowed'} Linux binary after download."
-                )
-            
-            print(f"Extracting footsies binaries from {zip_path}...")
-            
-            # Extract the zip file to the package binaries directory
-            binaries_dir = os.path.join(project_root, "binaries")
-            os.makedirs(binaries_dir, exist_ok=True)
-            
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(binaries_dir)
-            
-            # Find the extracted folder and rename it to footsies_binaries
-            extracted_items = os.listdir(binaries_dir)
-            extracted_folder = None
-            
-            # Look for a folder that was just extracted (not the existing footsies_binaries)
-            for item in extracted_items:
-                item_path = os.path.join(binaries_dir, item)
-                if (os.path.isdir(item_path) and 
-                    item != "footsies_binaries" and 
-                    not item.endswith(".zip") and
-                    "footsies" in item.lower()):
-                    extracted_folder = item
-                    break
-            
-            if extracted_folder:
-                old_path = os.path.join(binaries_dir, extracted_folder)
-                new_path = os.path.join(binaries_dir, "footsies_binaries")
-                
-                # Remove existing footsies_binaries if it exists
-                if os.path.exists(new_path):
-                    import shutil
-                    shutil.rmtree(new_path)
-                
-                os.rename(old_path, new_path)
-                print(f"Renamed {extracted_folder} to footsies_binaries")
             
             # Verify the binary now exists
             if not os.path.exists(binary_path):
                 raise FileNotFoundError(
-                    f"Failed to extract or find footsies binary at {binary_path} after extraction."
+                    f"Failed to find footsies binary at {binary_path} after extraction."
                 )
         
         # We'll also want to make sure the binary is executable
@@ -208,9 +167,33 @@ class FootsiesEnv(env.MultiAgentEnv):
 
         command = [binary_path, "--port", str(port)]
         
-        # Launch the process in the background. We can store the process if we need to manage it later.
-        self.server_process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        print(f"Launched footsies binary on port {port}.")
+        # For windowed mode in WSL, check if DISPLAY is set
+        if not self.headless and not os.environ.get('DISPLAY'):
+            print("⚠️  Warning: DISPLAY environment variable not set. Windowed mode may not work in WSL.")
+            print("   For WSL2 with Windows 11, WSLg should handle this automatically.")
+            print("   For older WSL versions, you may need to set up X11 forwarding.")
+        
+        print("Launching with command:", command)
+        
+        # For windowed mode, don't suppress output as it may contain important display messages
+        # For headless mode, suppress output to keep it clean
+        if self.headless:
+            # Headless mode - suppress output
+            self.server_process = subprocess.Popen(
+                command, 
+                stdout=subprocess.DEVNULL, 
+                stderr=subprocess.DEVNULL
+            )
+        else:
+            # Windowed mode - allow output for display setup (important for WSL)
+            self.server_process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+        
+        binary_type = "headless" if self.headless else "windowed"
+        print(f"Launched {binary_type} footsies binary on port {port}.")
         time.sleep(5)
 
     def close(self):
