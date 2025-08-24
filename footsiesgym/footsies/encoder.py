@@ -23,19 +23,11 @@ class FootsiesEncoder:
 
     observation_size: int = 81
 
-    def __init__(self, observation_delay: int):
-        self._encoding_history = {
-            agent_id: collections.deque(maxlen=int(observation_delay))
-            for agent_id in ["p1", "p2"]
-        }
-        self.observation_delay = observation_delay
+    def __init__(self):
         self._last_common_state: np.ndarray | None = None
 
     def reset(self):
-        self._encoding_history = {
-            agent_id: collections.deque(maxlen=int(self.observation_delay))
-            for agent_id in ["p1", "p2"]
-        }
+        self._last_common_state = None
 
     def encode(
         self,
@@ -65,23 +57,6 @@ class FootsiesEncoder:
             game_state.player2, game_state.frame_count, **kwargs.get("p2", {})
         )
 
-        observation_delay = min(
-            self.observation_delay, len(self._encoding_history["p1"])
-        )
-
-        if observation_delay > 0:
-            p1_delayed_encoding = self._encoding_history["p1"][
-                -observation_delay
-            ]
-            p2_delayed_encoding = self._encoding_history["p2"][
-                -observation_delay
-            ]
-        else:
-            p1_delayed_encoding = copy.deepcopy(p1_encoding)
-            p2_delayed_encoding = copy.deepcopy(p2_encoding)
-
-        self._encoding_history["p1"].append(p1_encoding)
-        self._encoding_history["p2"].append(p2_encoding)
         self._last_common_state = common_state
 
         # Create features dictionary and export to JSON
@@ -99,43 +74,30 @@ class FootsiesEncoder:
         p1_encoding = np.hstack(list(p1_encoding.values()), dtype=np.float32)
         p2_encoding = np.hstack(list(p2_encoding.values()), dtype=np.float32)
 
-        # Concatenate the observations for the delayed encoding
-        p1_delayed_encoding = np.hstack(
-            list(p1_delayed_encoding.values()), dtype=np.float32
-        )
-        p2_delayed_encoding = np.hstack(
-            list(p2_delayed_encoding.values()), dtype=np.float32
-        )
-
         p1_centric_observation = np.hstack(
-            [common_state, p1_encoding, p2_delayed_encoding]
+            [common_state, p1_encoding, p2_encoding]
         )
 
         p2_centric_observation = np.hstack(
-            [common_state, p2_encoding, p1_delayed_encoding]
+            [common_state, p2_encoding, p1_encoding]
         )
 
         return {"p1": p1_centric_observation, "p2": p2_centric_observation}
 
-    def get_last_encoding(self) -> dict[str, np.ndarray]:
-        if self._last_common_state is None:
-            return None
-
-        return {
-            "common_state": self._last_common_state.reshape(-1),
-            "p1": np.hstack(
-                list(self._encoding_history["p1"][-1].values()),
-                dtype=np.float32,
-            ),
-            "p2": np.hstack(
-                list(self._encoding_history["p2"][-1].values()),
-                dtype=np.float32,
-            ),
-        }
-
     def encode_common_state(
         self, game_state: footsies_pb2.GameState
     ) -> np.ndarray:
+        """
+        Encode features that are always the same for both agents. These
+        should be features that are a function of both players' states.
+
+        Currently only encodes the distance between players. 
+
+        :param game_state: The game state to encode
+        :type game_state: footsies_pb2.GameState
+        :return: The encoded common state
+        :rtype: np.ndarray
+        """
         p1_state, p2_state = game_state.player1, game_state.player2
 
         dist_x = (
@@ -165,6 +127,7 @@ class FootsiesEncoder:
 
         TODO(chase): Test mirroring the positions so
             the agent always thinks it's LHS
+        TODO(chase): Make normalizing constants set in a constants class. 
         """
         feature_dict = {
             "player_position_x": player_state.player_position_x / 4.0,
