@@ -222,7 +222,7 @@ class FootsiesEnv(env.MultiAgentEnv):
 
     def _reset_action_delay_queues(self):
         self._action_queues: dict[typing.AgentID, collections.deque[int]] = {
-            agent_id: collections.deque[int] = collections.deque([constants.EnvActions.NONE] * self.action_delay_steps, maxlen=self.action_delay_steps)
+            agent_id: collections.deque([constants.EnvActions.NONE] * self.action_delay_steps, maxlen=self.action_delay_steps)
             for agent_id in self.agents
         }
     
@@ -303,7 +303,6 @@ class FootsiesEnv(env.MultiAgentEnv):
         for agent_id in self.agents:
             actions_to_execute[agent_id] = self._action_queues[agent_id].popleft()
             self._action_queues[agent_id].append(actions[agent_id])
-
 
         for agent_id in self.agents:
             empty_queue = self.special_charge_queue[agent_id] < 0
