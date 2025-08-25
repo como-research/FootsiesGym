@@ -300,9 +300,12 @@ class FootsiesEnv(env.MultiAgentEnv):
 
         # Update action queue -> dequeue old actions, enqueue new actions
         actions_to_execute: dict[typing.AgentID, typing.ActionType] = {}
-        for agent_id in self.agents:
-            actions_to_execute[agent_id] = self._action_queues[agent_id].popleft()
-            self._action_queues[agent_id].append(actions[agent_id])
+        if self.action_delay_frames == 0:
+            actions_to_execute = actions
+        else:
+            for agent_id in self.agents:
+                actions_to_execute[agent_id] = self._action_queues[agent_id].popleft()
+                self._action_queues[agent_id].append(actions[agent_id])
 
         for agent_id in self.agents:
             empty_queue = self.special_charge_queue[agent_id] < 0
