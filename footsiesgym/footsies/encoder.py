@@ -80,20 +80,15 @@ class FootsiesEncoder:
             p1_delayed_encoding = copy.deepcopy(p1_encoding)
             p2_delayed_encoding = copy.deepcopy(p2_encoding)
 
-        self._encoding_history["p1"].append(p1_encoding)
-        self._encoding_history["p2"].append(p2_encoding)
+        self._encoding_history["p1"].append(np.hstack([p1_encoding, common_state]))
+        self._encoding_history["p2"].append(np.hstack([p2_encoding, common_state]))
         self._last_common_state = common_state
 
         # Create features dictionary and export to JSON
-        features = {}
-        current_index = 0
+        # features = {}
+        # current_index = 0
 
-        # Common state
-        features["common_state"] = {
-            "start": current_index,
-            "length": len(common_state),
-        }
-        current_index += len(common_state)
+
 
         # Concatenate the observations for the undelayed encoding
         p1_encoding = np.hstack(list(p1_encoding.values()), dtype=np.float32)
@@ -114,6 +109,13 @@ class FootsiesEncoder:
         p2_centric_observation = np.hstack(
             [common_state, p2_encoding, p1_delayed_encoding]
         )
+
+        # # Common state
+        # features["common_state"] = {
+        #     "start": current_index,
+        #     "length": len(common_state),
+        # }
+        # current_index += len(common_state)
 
         return {"p1": p1_centric_observation, "p2": p2_centric_observation}
 
