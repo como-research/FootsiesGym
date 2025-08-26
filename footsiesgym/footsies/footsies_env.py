@@ -289,7 +289,13 @@ class FootsiesEnv(env.MultiAgentEnv):
                     self._build_charged_special_queue()
                 )
 
-            if self.special_charge_queue[agent_id] >= 0:
+            action_is_attack = (
+                actions[agent_id] in [constants.EnvActions.ATTACK, constants.EnvActions.BACK_ATTACK, constants.EnvActions.FORWARD_ATTACK]
+            )
+            if action_is_attack:
+                self.special_charge_queue[agent_id] = -1
+
+            elif self.special_charge_queue[agent_id] >= 0:
                 self.special_charge_queue[agent_id] -= 1
                 actions[agent_id] = self._convert_to_charge_action(
                     actions[agent_id]
