@@ -26,15 +26,16 @@ class FootsiesEncoder:
     def __init__(self, observation_delay: int):
         self._encoding_history = {
             agent_id: collections.deque(maxlen=int(observation_delay))
-            for agent_id in ["p1", "p2"]
+            for agent_id in ["p1", "p2", "common_state"]
         }
         self.observation_delay = observation_delay
         self._last_common_state: np.ndarray | None = None
 
     def reset(self):
+
         self._encoding_history = {
             agent_id: collections.deque(maxlen=int(self.observation_delay))
-            for agent_id in ["p1", "p2"]
+            for agent_id in ["p1", "p2", "common_state"]
         }
 
     def encode(
@@ -76,12 +77,17 @@ class FootsiesEncoder:
             p2_delayed_encoding = self._encoding_history["p2"][
                 -observation_delay
             ]
+            common_state_delayed = self._encoding_history["common_state"][
+                -observation_delay
+            ]
         else:
             p1_delayed_encoding = copy.deepcopy(p1_encoding)
             p2_delayed_encoding = copy.deepcopy(p2_encoding)
+            common_state_delayed = copy.deepcopy(common_state)
 
-        self._encoding_history["p1"].append(np.hstack([p1_encoding, common_state]))
-        self._encoding_history["p2"].append(np.hstack([p2_encoding, common_state]))
+        self._encoding_history["p1"].append(p1_encoding)
+        self._encoding_history["p2"].append(p2_encoding)
+        self._encoding_history["common_state"].append(common_state)
         self._last_common_state = common_state
 
         # Create features dictionary and export to JSON
@@ -103,11 +109,11 @@ class FootsiesEncoder:
         )
 
         p1_centric_observation = np.hstack(
-            [common_state, p1_encoding, p2_delayed_encoding]
+            [p1_encoding, p2_delayed_encoding, common_state_delayed]
         )
 
         p2_centric_observation = np.hstack(
-            [common_state, p2_encoding, p1_delayed_encoding]
+            [p2_encoding, p1_delayed_encoding, common_state_delayed]
         )
 
         # # Common state
