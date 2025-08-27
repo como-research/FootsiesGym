@@ -43,7 +43,7 @@ def make(config: dict | None = None, platform: str = "linux", launch_binaries: b
         "max_t": 4000,
         "frame_skip": 4,
         "observation_delay": 16,
-        "reward_guard_break": False,
+        "guard_break_reward": 0.005,
     }
 
     if config is not None:

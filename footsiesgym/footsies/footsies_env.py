@@ -21,7 +21,6 @@ class FootsiesEnv(env.MultiAgentEnv):
     LINUX_ZIP_PATH_HEADLESS = "binaries/footsies_linux_server_021725.zip"
     LINUX_ZIP_PATH_WINDOWED = "binaries/footsies_linux_windowed_021725.zip"
     SPECIAL_CHARGE_FRAMES = 60
-    GUARD_BREAK_REWARD = 0.3
 
     observation_space = spaces.Dict(
         {
@@ -66,6 +65,7 @@ class FootsiesEnv(env.MultiAgentEnv):
         self.agents: list[typing.AgentID] = ["p1", "p2"]
         self.possible_agents: list[typing.AgentID] = self.agents.copy()
         self._agent_ids: set[typing.AgentID] = set(self.agents)
+        self.guard_break_reward_value = self.config.get("guard_break_reward", 0)
 
         self.evaluation = config.get("evaluation", False)
 
@@ -111,9 +111,9 @@ class FootsiesEnv(env.MultiAgentEnv):
         )
 
         self.last_game_state = None
-        self.special_charge_queue = {
-            "p1": -1,
-            "p2": -1,
+        self._holding_special_charge = {
+            "p1": False,
+            "p2": False,
         }
 
     def _is_port_in_use(self, port: int) -> bool:
@@ -297,7 +297,6 @@ class FootsiesEnv(env.MultiAgentEnv):
         """
         self.t += 1
 
-
         # Update action queue -> dequeue old actions, enqueue new actions
         actions_to_execute: dict[typing.AgentID, typing.ActionType] = {}
         if self.action_delay_frames == 0:
@@ -308,19 +307,19 @@ class FootsiesEnv(env.MultiAgentEnv):
                 self._action_queues[agent_id].append(actions[agent_id])
 
         for agent_id in self.agents:
-            empty_queue = self.special_charge_queue[agent_id] < 0
+            holding_special_charge = self._holding_special_charge[agent_id]
             action_is_special_charge = (
                 actions_to_execute[agent_id] == constants.EnvActions.SPECIAL_CHARGE
             )
 
-            # Refill the charge queue only if we're not already in a special charge.
-            if action_is_special_charge and empty_queue:
-                self.special_charge_queue[agent_id] = (
-                    self._build_charged_special_queue()
-                )
+            # Toggle the special charge based on whether or not we're holding special already
+            if action_is_special_charge and not holding_special_charge:
+                self._holding_special_charge[agent_id] = True
+            elif action_is_special_charge and holding_special_charge:
+                self._holding_special_charge[agent_id] = False
+                actions_to_execute[agent_id] = constants.EnvActions.NONE
 
-            if self.special_charge_queue[agent_id] >= 0:
-                self.special_charge_queue[agent_id] -= 1
+            if self._holding_special_charge[agent_id]:
                 actions_to_execute[agent_id] = self._convert_to_charge_action(
                     actions_to_execute[agent_id]
                 )
@@ -343,18 +342,18 @@ class FootsiesEnv(env.MultiAgentEnv):
             - int(game_state.player2.is_dead),
         }
 
-        if self.config.get("reward_guard_break", False):
+        if self.guard_break_reward_value != 0:
             p1_prev_guard_health = self.last_game_state.player1.guard_health
             p2_prev_guard_health = self.last_game_state.player2.guard_health
             p1_guard_health = game_state.player1.guard_health
             p2_guard_health = game_state.player2.guard_health
 
             if p2_guard_health < p2_prev_guard_health:
-                rewards["p1"] += self.GUARD_BREAK_REWARD
-                rewards["p2"] -= self.GUARD_BREAK_REWARD
+                rewards["p1"] += self.guard_break_reward_value
+                rewards["p2"] -= self.guard_break_reward_value
             if p1_guard_health < p1_prev_guard_health:
-                rewards["p2"] += self.GUARD_BREAK_REWARD
-                rewards["p1"] -= self.GUARD_BREAK_REWARD
+                rewards["p2"] += self.guard_break_reward_value
+                rewards["p1"] -= self.guard_break_reward_value
 
         terminateds = {
             "p1": terminated,
