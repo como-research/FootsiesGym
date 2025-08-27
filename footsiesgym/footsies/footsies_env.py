@@ -109,9 +109,9 @@ class FootsiesEnv(env.MultiAgentEnv):
         )
 
         self.last_game_state = None
-        self.special_charge_queue = {
-            "p1": -1,
-            "p2": -1,
+        self._holding_special_charge = {
+            "p1": False,
+            "p2": False,
         }
 
     def _is_port_in_use(self, port: int) -> bool:
@@ -278,25 +278,19 @@ class FootsiesEnv(env.MultiAgentEnv):
         self.t += 1
 
         for agent_id in self.agents:
-            empty_queue = self.special_charge_queue[agent_id] < 0
+            holding_special_charge = self._holding_special_charge[agent_id]
             action_is_special_charge = (
                 actions[agent_id] == constants.EnvActions.SPECIAL_CHARGE
             )
 
-            # Refill the charge queue only if we're not already in a special charge.
-            if action_is_special_charge and empty_queue:
-                self.special_charge_queue[agent_id] = (
-                    self._build_charged_special_queue()
-                )
+            # Toggle the special charge based on whether or not we're holding special already
+            if action_is_special_charge and not holding_special_charge:
+                self._holding_special_charge[agent_id] = True
+            elif action_is_special_charge and holding_special_charge:
+                self._holding_special_charge[agent_id] = False
+                actions[agent_id] = constants.EnvActions.NONE
 
-            action_is_attack = (
-                actions[agent_id] in [constants.EnvActions.ATTACK, constants.EnvActions.BACK_ATTACK, constants.EnvActions.FORWARD_ATTACK]
-            )
-            if action_is_attack:
-                self.special_charge_queue[agent_id] = -1
-
-            elif self.special_charge_queue[agent_id] >= 0:
-                self.special_charge_queue[agent_id] -= 1
+            if self._holding_special_charge[agent_id]:
                 actions[agent_id] = self._convert_to_charge_action(
                     actions[agent_id]
                 )
