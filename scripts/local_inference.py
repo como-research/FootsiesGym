@@ -133,7 +133,7 @@ def main():
             "observation_delay": 16,
             "max_t": 4000,
             "port": 80051,
-            "reward_guard_break": False,
+            "guard_break_reward": 0,
         }
     )
 

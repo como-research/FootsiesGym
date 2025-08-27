@@ -20,7 +20,6 @@ class FootsiesEnv(env.MultiAgentEnv):
     LINUX_ZIP_PATH_HEADLESS = "binaries/footsies_linux_server_021725.zip"
     LINUX_ZIP_PATH_WINDOWED = "binaries/footsies_linux_windowed_021725.zip"
     SPECIAL_CHARGE_FRAMES = 60
-    GUARD_BREAK_REWARD = 0.3
 
     observation_space = spaces.Dict(
         {
@@ -65,6 +64,7 @@ class FootsiesEnv(env.MultiAgentEnv):
         self.agents: list[typing.AgentID] = ["p1", "p2"]
         self.possible_agents: list[typing.AgentID] = self.agents.copy()
         self._agent_ids: set[typing.AgentID] = set(self.agents)
+        self.guard_break_reward_value = self.config.get("guard_break_reward", 0)
 
         self.evaluation = config.get("evaluation", False)
 
@@ -319,18 +319,18 @@ class FootsiesEnv(env.MultiAgentEnv):
             - int(game_state.player2.is_dead),
         }
 
-        if self.config.get("reward_guard_break", False):
+        if self.guard_break_reward_value != 0:
             p1_prev_guard_health = self.last_game_state.player1.guard_health
             p2_prev_guard_health = self.last_game_state.player2.guard_health
             p1_guard_health = game_state.player1.guard_health
             p2_guard_health = game_state.player2.guard_health
 
             if p2_guard_health < p2_prev_guard_health:
-                rewards["p1"] += self.GUARD_BREAK_REWARD
-                rewards["p2"] -= self.GUARD_BREAK_REWARD
+                rewards["p1"] += self.guard_break_reward_value
+                rewards["p2"] -= self.guard_break_reward_value
             if p1_guard_health < p1_prev_guard_health:
-                rewards["p2"] += self.GUARD_BREAK_REWARD
-                rewards["p1"] -= self.GUARD_BREAK_REWARD
+                rewards["p2"] += self.guard_break_reward_value
+                rewards["p1"] -= self.guard_break_reward_value
 
         terminateds = {
             "p1": terminated,
