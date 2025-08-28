@@ -145,7 +145,6 @@ class FootsiesEncoder:
 
         TODO(chase): Test mirroring the positions so
             the agent always thinks it's LHS
-        TODO(chase): Make normalizing constants set in a constants class. 
         """
         feature_dict = {
             "player_position_x": player_state.player_position_x / NormalizationConstants.max_x_value,
