@@ -7,6 +7,22 @@ import numpy as np
 from footsiesgym.footsies.game import constants
 from footsiesgym.footsies.game.proto import footsies_service_pb2 as footsies_pb2
 
+import dataclasses
+
+@dataclasses.dataclass
+class NormalizationConstants:
+    stage_width: float = 8.0
+    max_x_value: float = 4.0
+    meaningful_velocity_x: float = 5.0
+    meaningful_frame_count: float = 25.0
+    meaningful_sprite_shake_frame: float = 10.0
+    meaningful_hit_stun_frame: float = 10.0
+    meaningful_frame_advantage: float = 10.0
+    meaningful_special_attack_progress: float = 1.0
+    meaningful_guard_health: float = 3.0
+    meaningful_vital_health: float = 1.0
+    
+
 
 class EncoderMethods:
     @staticmethod
@@ -21,7 +37,8 @@ class EncoderMethods:
 class FootsiesEncoder:
     """Encoder class to generate observations from the game state"""
 
-    observation_size: int = 81
+    observation_size: int = 78
+    privileged_feature_names: list[str] = ["special_attack_progress", "would_next_forward_input_dash", "would_next_backward_input_dash"]
 
     def __init__(self):
         self._last_common_state: np.ndarray | None = None
@@ -59,27 +76,28 @@ class FootsiesEncoder:
 
         self._last_common_state = common_state
 
-        # Create features dictionary and export to JSON
-        features = {}
-        current_index = 0
-
-        # Common state
-        features["common_state"] = {
-            "start": current_index,
-            "length": len(common_state),
-        }
-        current_index += len(common_state)
-
         # Concatenate the observations for the undelayed encoding
-        p1_encoding = np.hstack(list(p1_encoding.values()), dtype=np.float32)
-        p2_encoding = np.hstack(list(p2_encoding.values()), dtype=np.float32)
+        p1_encoding_concat = np.hstack(list(p1_encoding.values()), dtype=np.float32)
+        p2_encoding_concat = np.hstack(list(p2_encoding.values()), dtype=np.float32)
+
+        # Opponent states that remove privileged features
+        # Remove privileged features from the opponent's state dict then concatenate
+        p1_opponent_state = np.hstack(
+            [p2_encoding[key] for key in p2_encoding if key not in self.privileged_feature_names],
+            dtype=np.float32,
+        )
+        p2_opponent_state = np.hstack(
+            [p1_encoding[key] for key in p1_encoding if key not in self.privileged_feature_names],
+            dtype=np.float32,
+        )
+
 
         p1_centric_observation = np.hstack(
-            [common_state, p1_encoding, p2_encoding]
+            [common_state, p1_encoding_concat, p2_opponent_state]
         )
 
         p2_centric_observation = np.hstack(
-            [common_state, p2_encoding, p1_encoding]
+            [common_state, p2_encoding_concat, p1_opponent_state]
         )
 
         return {"p1": p1_centric_observation, "p2": p2_centric_observation}
@@ -102,7 +120,7 @@ class FootsiesEncoder:
 
         dist_x = (
             np.abs(p1_state.player_position_x - p2_state.player_position_x)
-            / 8.0
+            / NormalizationConstants.stage_width
         )
 
         return np.array(
@@ -130,8 +148,8 @@ class FootsiesEncoder:
         TODO(chase): Make normalizing constants set in a constants class. 
         """
         feature_dict = {
-            "player_position_x": player_state.player_position_x / 4.0,
-            "velocity_x": player_state.velocity_x / 5.0,
+            "player_position_x": player_state.player_position_x / NormalizationConstants.max_x_value,
+            "velocity_x": player_state.velocity_x / NormalizationConstants.meaningful_velocity_x,
             "is_dead": int(player_state.is_dead),
             "vital_health": player_state.vital_health,
             "guard_health": EncoderMethods.one_hot(
@@ -140,25 +158,26 @@ class FootsiesEncoder:
             "current_action_id": self._encode_action_id(
                 player_state.current_action_id
             ),
-            "current_action_frame": player_state.current_action_frame / 25,
+            "current_action_frame": player_state.current_action_frame / NormalizationConstants.meaningful_frame_count,
             "current_action_frame_count": player_state.current_action_frame_count
-            / 25,
+            / NormalizationConstants.meaningful_frame_count,
             "current_action_remaining_frames": (
                 player_state.current_action_frame_count
                 - player_state.current_action_frame
             )
-            / 25,
+            / NormalizationConstants.meaningful_frame_count,
             "is_action_end": int(player_state.is_action_end),
             "is_always_cancelable": int(player_state.is_always_cancelable),
             "current_action_hit_count": player_state.current_action_hit_count,
-            "current_hit_stun_frame": player_state.current_hit_stun_frame / 10,
+            "current_hit_stun_frame": player_state.current_hit_stun_frame / NormalizationConstants.meaningful_hit_stun_frame,
             "is_in_hit_stun": int(player_state.is_in_hit_stun),
             "sprite_shake_position": player_state.sprite_shake_position,
-            "max_sprite_shake_frame": player_state.max_sprite_shake_frame / 10,
+            "max_sprite_shake_frame": player_state.max_sprite_shake_frame / NormalizationConstants.meaningful_sprite_shake_frame,
             "is_face_right": int(player_state.is_face_right),
             "current_frame_advantage": player_state.current_frame_advantage
-            / 10,
-            # The below features leak some information about the opponent!
+            / NormalizationConstants.meaningful_frame_advantage,
+
+            # Begin privileged features
             "would_next_forward_input_dash": int(
                 player_state.would_next_forward_input_dash
             ),
