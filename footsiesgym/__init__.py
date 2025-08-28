@@ -40,10 +40,10 @@ def make(config: dict | None = None, platform: str = "linux", launch_binaries: b
     default_config = {
         "platform": platform, 
         "launch_binaries": launch_binaries,
-        "max_t": 4000,
+        "max_t": 1000,
         "frame_skip": 4,
-        "observation_delay": 16,
-        "guard_break_reward": 0.005,
+        "action_delay": 8,
+        "guard_break_reward": 0.0,
     }
 
     if config is not None:

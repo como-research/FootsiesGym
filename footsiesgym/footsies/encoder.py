@@ -82,22 +82,22 @@ class FootsiesEncoder:
 
         # Opponent states that remove privileged features
         # Remove privileged features from the opponent's state dict then concatenate
-        p1_opponent_state = np.hstack(
-            [p2_encoding[key] for key in p2_encoding if key not in self.privileged_feature_names],
+        p1_well_known_state = np.hstack(
+            [p1_encoding[key] for key in p1_encoding if key not in self.privileged_feature_names],
             dtype=np.float32,
         )
-        p2_opponent_state = np.hstack(
-            [p1_encoding[key] for key in p1_encoding if key not in self.privileged_feature_names],
+        p2_well_known_state = np.hstack(
+            [p2_encoding[key] for key in p2_encoding if key not in self.privileged_feature_names],
             dtype=np.float32,
         )
 
 
         p1_centric_observation = np.hstack(
-            [common_state, p1_encoding_concat, p2_opponent_state]
+            [common_state, p1_encoding_concat, p2_well_known_state]
         )
 
         p2_centric_observation = np.hstack(
-            [common_state, p2_encoding_concat, p1_opponent_state]
+            [common_state, p2_encoding_concat, p1_well_known_state]
         )
 
         return {"p1": p1_centric_observation, "p2": p2_centric_observation}
@@ -187,6 +187,8 @@ class FootsiesEncoder:
                 player_state.special_attack_progress, 1.0
             ),
         }
+
+        print(feature_dict["special_attack_progress"])
 
         if kwargs:
             feature_dict.update(kwargs)

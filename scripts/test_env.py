@@ -4,9 +4,12 @@ import footsiesgym
 
 
 
+
+
+
 if __name__ == "__main__":
 
-    env = footsiesgym.make(config={"max_t": 4000, "frame_skip": 4, "action_delay": 0, "port": 50051, "headless": False}, launch_binaries=True, platform="linux")
+    env = footsiesgym.make(config={"max_t": 4000, "frame_skip": 4, "action_delay": 8, "port": 50051, "headless": False}, launch_binaries=True, platform="linux")
 
 
     obs, _ = env.reset()
