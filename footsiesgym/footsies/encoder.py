@@ -188,8 +188,6 @@ class FootsiesEncoder:
             ),
         }
 
-        print(feature_dict["special_attack_progress"])
-
         if kwargs:
             feature_dict.update(kwargs)
 
