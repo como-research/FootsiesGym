@@ -3,6 +3,7 @@ import time
 import numpy as np
 from gymnasium import spaces
 from ray.rllib import env
+from ray.rllib.env import env_context
 
 from . import encoder, typing
 import os
@@ -82,20 +83,13 @@ class FootsiesEnv(env.MultiAgentEnv):
         )
 
 
-        
         port = config.get("port", None)
         self.headless = config.get("headless", True)
         # we'll start game servers at 50051 for training
         # and 40051 for evaluation. Worker index starts at
         # 1, so we won't see 40050/50050.
         if port is None:
-            start_port = 40050 if self.evaluation else 50050
-            port = (
-                start_port
-                + int(config.get("worker_index", 0))
-                * config.get("num_envs_per_worker", 1)
-                + config.get("vector_index", 0)
-            )
+            port = self._determine_port(config)
 
         # If specified, we'll launch the binaries from the environment itself.
         self.server_process = None
@@ -113,6 +107,43 @@ class FootsiesEnv(env.MultiAgentEnv):
             "p1": False,
             "p2": False,
         }
+
+    def _determine_port(self, config: dict[Any, Any] | env_context.EnvContext):
+        if isinstance(config, dict):
+            return self._determine_port_from_dict(config)
+        elif isinstance(config, env_context.EnvContext):
+            return self._determine_port_from_env_context(config)
+        else:
+            raise TypeError("config must be a dict or env_context.EnvContext")
+
+    def _determine_port_from_dict(self, config: dict[Any, Any]):
+        """Find an available port starting from a base port."""
+        NUM_PORTS_TO_TRY = 1000
+        base_port = 40051 if self.evaluation else 50051
+        
+        # Try up to 1000 ports to find an available one
+        for offset in range(NUM_PORTS_TO_TRY):
+            port = base_port + offset
+            if not self._is_port_in_use(port):
+                return port
+        
+        # If we can't find an available port in the range, raise an error
+        raise RuntimeError(f"Could not find an available port in range {base_port}-{base_port + NUM_PORTS_TO_TRY - 1}")
+
+    def _determine_port_from_env_context(self, config: env_context.EnvContext):
+        start_port = 40050 if self.evaluation else 50050
+        worker_index = config.worker_index
+        num_envs_per_worker = config.get("num_envs_per_worker", 1)
+        vector_index = config.vector_index
+        
+        port = (
+            start_port
+            + worker_index * num_envs_per_worker
+            + vector_index
+        )
+
+        return port
+
 
     def _is_port_in_use(self, port: int) -> bool:
         """Check if a port is already in use."""
