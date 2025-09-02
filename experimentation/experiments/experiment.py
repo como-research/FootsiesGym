@@ -246,7 +246,7 @@ class Experiment:
         else:
 
             config.training(
-                train_batch_size=8192,
+                train_batch_size=2048,
                 # lr_schedule=[[0, 0.001], [5_000_000, 0.00075], [10_000_000, 3e-4]],
                 lr=4e-4,
                 entropy_coeff=0.01,
