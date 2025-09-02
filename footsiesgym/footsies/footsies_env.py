@@ -110,11 +110,11 @@ class FootsiesEnv(env.MultiAgentEnv):
             "p2": False,
         }
 
-    def _determine_port(self, config: dict[Any, Any] | env_context.EnvContext):
-        if isinstance(config, dict):
-            return self._determine_port_from_dict(config)
-        elif isinstance(config, env_context.EnvContext):
+    def _determine_port(self, config: dict[Any, Any] | env_context.EnvContext) -> int:
+        if isinstance(config, env_context.EnvContext):
             return self._determine_port_from_env_context(config)
+        elif isinstance(config, dict):
+            return self._determine_port_from_dict(config)
         else:
             raise TypeError("config must be a dict or env_context.EnvContext")
 
