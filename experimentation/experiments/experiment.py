@@ -121,7 +121,7 @@ class Experiment:
                     "frame_skip": 4,
                     "observation_delay": 16,
                     "num_envs_per_worker": self.NUM_ENVS_PER_ENV_RUNNER,
-                    "guard_break_reward": 0.005,
+                    "guard_break_reward": 0.3,
                     "launch_binaries": True,
                 },
             )
