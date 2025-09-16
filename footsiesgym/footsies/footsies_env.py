@@ -116,7 +116,7 @@ class FootsiesEnv(env.MultiAgentEnv):
         elif isinstance(config, dict):
             return self._determine_port_from_dict(config)
         else:
-            raise TypeError("config must be a dict or env_context.EnvContext")
+            raise TypeError("config must be a dict or EnvContext")
 
     def _determine_port_from_dict(self, config: dict[Any, Any]):
         """Find an available port starting from a base port."""
