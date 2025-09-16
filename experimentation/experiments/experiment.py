@@ -241,7 +241,7 @@ class Experiment:
                 ),
                 gamma=0.995,
                 vf_loss_coeff=tune.choice([0.5, 1.0]),
-                tau=tune.choice([1, 0.1, 4e-4]),
+                # tau=tune.choice([1, 0.1, 4e-4]),
             )
         else:
 
@@ -271,7 +271,7 @@ class Experiment:
         )
 
         experiment_name = self.config.get("experiment_name")
-        results_path = f"/home/c/ray_results/{experiment_name}"
+        results_path = f"~/ray_results/{experiment_name}"
         experiment_exists = os.path.exists(results_path)
         if experiment_exists and experiment_name != "test":
             print("Experiment already exists, restoring...")
