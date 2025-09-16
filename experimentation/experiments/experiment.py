@@ -119,7 +119,7 @@ class Experiment:
                 env_config={
                     "max_t": 1000,
                     "frame_skip": 4,
-                    "action_delay": 8,
+                    "action_delay": 16,
                     "num_envs_per_worker": self.NUM_ENVS_PER_ENV_RUNNER,
                     "guard_break_reward": 0.0,
                     "launch_binaries": True,
