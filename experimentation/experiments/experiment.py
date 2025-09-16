@@ -117,11 +117,11 @@ class Experiment:
             .environment(
                 "FootsiesEnv",
                 env_config={
-                    "max_t": 4000,
+                    "max_t": 1000,
                     "frame_skip": 4,
-                    "observation_delay": 16,
+                    "action_delay": 16,
                     "num_envs_per_worker": self.NUM_ENVS_PER_ENV_RUNNER,
-                    "guard_break_reward": 0.3,
+                    "guard_break_reward": 0.0,
                     "launch_binaries": True,
                 },
             )
@@ -157,11 +157,11 @@ class Experiment:
                             "model": {
                                 "custom_model": lstm_model.LSTMModel,
                                 "custom_model_config": {
-                                    "lstm_cell_size": 128,
-                                    "policy_dense_widths": [128, 128],
+                                    "lstm_cell_size": 256,
+                                    "policy_dense_widths": [256, 256],
                                 },
                             },
-                            "max_seq_len": 64,
+                            "max_seq_len": 32,
                         },
                         observation_space=policy_observation_space,
                         action_space=policy_action_space,
@@ -189,11 +189,11 @@ class Experiment:
             )
             .evaluation(
                 evaluation_num_env_runners=(
-                    5 if not self.config.get("debug", False) else 1
+                    8 if not self.config.get("debug", False) else 1
                 ),
-                evaluation_interval=5,
-                evaluation_duration=30,
-                evaluation_duration_unit="episodes",
+                evaluation_interval=1,
+                evaluation_duration="auto",
+                evaluation_duration_unit="timesteps",
                 evaluation_parallel_to_training=True,
                 evaluation_config={
                     "env_config": {"evaluation": True},
@@ -241,18 +241,18 @@ class Experiment:
                 ),
                 gamma=0.995,
                 vf_loss_coeff=tune.choice([0.5, 1.0]),
-                tau=tune.choice([1, 0.1, 4e-4]),
+                # tau=tune.choice([1, 0.1, 4e-4]),
             )
         else:
 
             config.training(
-                train_batch_size=1024,
+                train_batch_size=2048,
                 # lr_schedule=[[0, 0.001], [5_000_000, 0.00075], [10_000_000, 3e-4]],
                 lr=4e-4,
-                # entropy_coeff=0.005,
-                entropy_coeff_schedule=[[0, 0.03], [200_000_000, 0.01]],
-                gamma=0.995,
-                vf_loss_coeff=1.0,
+                entropy_coeff=0.01,
+                # entropy_coeff_schedule=[[0, 0.03], [200_000_000, 0.01]],
+                gamma=0.99,
+                vf_loss_coeff=0.5,
             )
 
         return config
@@ -271,7 +271,7 @@ class Experiment:
         )
 
         experiment_name = self.config.get("experiment_name")
-        results_path = f"/home/c/ray_results/{experiment_name}"
+        results_path = f"~/ray_results/{experiment_name}"
         experiment_exists = os.path.exists(results_path)
         if experiment_exists and experiment_name != "test":
             print("Experiment already exists, restoring...")

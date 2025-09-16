@@ -3,6 +3,7 @@ import time
 import numpy as np
 from gymnasium import spaces
 from ray.rllib import env
+import collections
 from ray.rllib.env import env_context
 
 from . import encoder, typing
@@ -71,16 +72,17 @@ class FootsiesEnv(env.MultiAgentEnv):
 
         self.t: int = 0
         self.max_t: int = config.get("max_t", 1000)
-        self.frame_skip = config.get("frame_skip", 4)
-        observation_delay = config.get("observation_delay", 16)
+        self.frame_skip: int = config.get("frame_skip", 4)
+        self.action_delay_frames: int = config.get("action_delay", 16)
 
         assert (
-            observation_delay % self.frame_skip == 0
-        ), "observation_delay must be divisible by frame_skip"
+            self.action_delay_frames % self.frame_skip == 0
+        ), "action_delay must be divisible by frame_skip"
 
-        self.encoder = encoder.FootsiesEncoder(
-            observation_delay=observation_delay // self.frame_skip
-        )
+        self.action_delay_steps: int = self.action_delay_frames // self.frame_skip
+        self.encoder = encoder.FootsiesEncoder()
+        self._action_queues: dict[typing.AgentID, collections.deque[int]] = None
+        self._reset_action_delay_queues()
 
 
         port = config.get("port", None)
@@ -108,11 +110,11 @@ class FootsiesEnv(env.MultiAgentEnv):
             "p2": False,
         }
 
-    def _determine_port(self, config: dict[Any, Any] | env_context.EnvContext):
-        if isinstance(config, dict):
-            return self._determine_port_from_dict(config)
-        elif isinstance(config, env_context.EnvContext):
+    def _determine_port(self, config: dict[Any, Any] | env_context.EnvContext) -> int:
+        if isinstance(config, env_context.EnvContext):
             return self._determine_port_from_env_context(config)
+        elif isinstance(config, dict):
+            return self._determine_port_from_dict(config)
         else:
             raise TypeError("config must be a dict or env_context.EnvContext")
 
@@ -249,19 +251,35 @@ class FootsiesEnv(env.MultiAgentEnv):
         """Ensure cleanup happens when the object is garbage collected."""
         self.close()
 
+    def _reset_action_delay_queues(self):
+        self._action_queues: dict[typing.AgentID, collections.deque[int]] = {
+            agent_id: collections.deque([constants.EnvActions.NONE] * self.action_delay_steps, maxlen=self.action_delay_steps)
+            for agent_id in self.agents
+        }
+    
+    def _validate_action_queues(self):
+        for agent_id in self.agents:
+            assert len(self._action_queues[agent_id]) == self.action_delay_steps, (
+                f"Action queue has the incorrect number of queued actions! "
+                " Observed {len(self._action_queues[agent_id])}, expected {self.action_delay_steps}"
+            )
 
     def get_obs(self, game_state):
         if self.use_build_encoding:
-            encoded_state = self.game.get_encoded_state()
-            encoded_state_dict = {
-                "p1": np.asarray(
-                    encoded_state.player1_encoding, dtype=np.float32
-                ),
-                "p2": np.asarray(
-                    encoded_state.player2_encoding, dtype=np.float32
-                ),
-            }
-            return encoded_state_dict
+            raise NotImplementedError(
+                "Build encoder has not yet integrated action delay! "
+                "Please use the default Python encoder for now."
+            )
+            # encoded_state = self.game.get_encoded_state()
+            # encoded_state_dict = {
+            #     "p1": np.asarray(
+            #         encoded_state.player1_encoding, dtype=np.float32
+            #     ),
+            #     "p2": np.asarray(
+            #         encoded_state.player2_encoding, dtype=np.float32
+            #     ),
+            # }
+            # return encoded_state_dict
         else:
             return self.encoder.encode(game_state)
 
@@ -282,6 +300,8 @@ class FootsiesEnv(env.MultiAgentEnv):
         self.t = 0
         self.game.reset_game()
         self.game.start_game()
+
+        self._reset_action_delay_queues()
 
         self.encoder.reset()
 
@@ -308,10 +328,19 @@ class FootsiesEnv(env.MultiAgentEnv):
         """
         self.t += 1
 
+        # Update action queue -> dequeue old actions, enqueue new actions
+        actions_to_execute: dict[typing.AgentID, typing.ActionType] = {}
+        if self.action_delay_frames == 0:
+            actions_to_execute = actions
+        else:
+            for agent_id in self.agents:
+                actions_to_execute[agent_id] = self._action_queues[agent_id].popleft()
+                self._action_queues[agent_id].append(actions[agent_id])
+
         for agent_id in self.agents:
             holding_special_charge = self._holding_special_charge[agent_id]
             action_is_special_charge = (
-                actions[agent_id] == constants.EnvActions.SPECIAL_CHARGE
+                actions_to_execute[agent_id] == constants.EnvActions.SPECIAL_CHARGE
             )
 
             # Toggle the special charge based on whether or not we're holding special already
@@ -319,15 +348,15 @@ class FootsiesEnv(env.MultiAgentEnv):
                 self._holding_special_charge[agent_id] = True
             elif action_is_special_charge and holding_special_charge:
                 self._holding_special_charge[agent_id] = False
-                actions[agent_id] = constants.EnvActions.NONE
+                actions_to_execute[agent_id] = constants.EnvActions.NONE
 
             if self._holding_special_charge[agent_id]:
-                actions[agent_id] = self._convert_to_charge_action(
-                    actions[agent_id]
+                actions_to_execute[agent_id] = self._convert_to_charge_action(
+                    actions_to_execute[agent_id]
                 )
 
-        p1_action = self.game.action_to_bits(actions["p1"], is_player_1=True)
-        p2_action = self.game.action_to_bits(actions["p2"], is_player_1=False)
+        p1_action = self.game.action_to_bits(actions_to_execute["p1"], is_player_1=True)
+        p2_action = self.game.action_to_bits(actions_to_execute["p2"], is_player_1=False)
 
         game_state = self.game.step_n_frames(
             p1_action=p1_action, p2_action=p2_action, n_frames=self.frame_skip
@@ -372,6 +401,7 @@ class FootsiesEnv(env.MultiAgentEnv):
 
         self.last_game_state = game_state
 
+        # ~~~ For debugging game build! ~~~
         # encoded_state = self.game.get_encoded_state()
         # encoded_state_dict = {
         #     "p1": np.asarray(
@@ -385,6 +415,8 @@ class FootsiesEnv(env.MultiAgentEnv):
         # for a_id, ob in observations.items():
         #     matched_obs = np.isclose(ob, encoded_state_dict[a_id]).all()
         #     assert matched_obs
+        # ~~~ END ~~~
+        self._validate_action_queues()
 
         return observations, rewards, terminateds, truncateds, self.get_infos()
 

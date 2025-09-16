@@ -55,7 +55,6 @@ MAX_FPS = 30
 
 
 def action_from_logits(logits: np.ndarray) -> int:
-    print(logits)
     action_probs = special.softmax(logits.reshape(-1))
     return np.random.choice(len(action_probs), p=action_probs)
 
