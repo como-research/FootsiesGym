@@ -139,7 +139,7 @@ class Experiment:
             )
             .env_runners(
                 num_env_runners=(
-                    120 if not self.config.get("debug", False) else 1
+                    80 if not self.config.get("debug", False) else 1
                 ),
                 # Must be 1 unless the port configuration is changed
                 # in footsies_env.py, which finds the port according
@@ -272,7 +272,8 @@ class Experiment:
         )
 
         experiment_name = self.config.get("experiment_name")
-        results_path = f"~/ray_results/{experiment_name}"
+        home_dir = os.path.expanduser("~")
+        results_path = f"{home_dir}/ray_results/{experiment_name}"
         experiment_exists = os.path.exists(results_path)
         if experiment_exists and experiment_name != "test":
             print("Experiment already exists, restoring...")
