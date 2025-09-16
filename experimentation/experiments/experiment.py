@@ -139,7 +139,7 @@ class Experiment:
             )
             .env_runners(
                 num_env_runners=(
-                    40 if not self.config.get("debug", False) else 1
+                    120 if not self.config.get("debug", False) else 1
                 ),
                 # Must be 1 unless the port configuration is changed
                 # in footsies_env.py, which finds the port according
@@ -246,13 +246,14 @@ class Experiment:
         else:
 
             config.training(
-                train_batch_size=2048,
+                train_batch_size=4096,
                 # lr_schedule=[[0, 0.001], [5_000_000, 0.00075], [10_000_000, 3e-4]],
-                lr=4e-4,
-                entropy_coeff=0.01,
+                lr=6e-4,
+                entropy_coeff=0.006,
                 # entropy_coeff_schedule=[[0, 0.03], [200_000_000, 0.01]],
                 gamma=0.99,
-                vf_loss_coeff=0.5,
+                vf_loss_coeff=1.0,
+                lambda_=0.95,
             )
 
         return config
