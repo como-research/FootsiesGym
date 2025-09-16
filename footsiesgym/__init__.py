@@ -11,7 +11,7 @@ from .footsies.footsies_env import FootsiesEnv
 from .footsies import encoder, typing
 from .binary_manager import get_binary_manager
 
-__version__ = "0.2.4"
+__version__ = "0.1.7"
 __all__ = ["FootsiesEnv", "encoder", "typing", "make"]
 
 # Initialize binary manager (but don't download yet - wait until needed)
@@ -40,10 +40,10 @@ def make(config: dict | None = None, platform: str = "linux", launch_binaries: b
     default_config = {
         "platform": platform, 
         "launch_binaries": launch_binaries,
-        "max_t": 1000,
+        "max_t": 4000,
         "frame_skip": 4,
-        "action_delay": 8,
-        "guard_break_reward": 0.0,
+        "observation_delay": 16,
+        "guard_break_reward": 0.005,
     }
 
     if config is not None:
