@@ -16,6 +16,8 @@ def main(*args, **kwargs):
             "experiment_name": FLAGS.experiment_name,
             "tune": FLAGS.tune,
             "checkpoint_freq": 10,
+            "num_trials": 100,
+            "max_concurrent_trials": 2,
         }
     ).run()
 

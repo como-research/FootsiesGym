@@ -84,13 +84,13 @@ class Experiment:
                 max_concurrent_trials=self.config.get(
                     "max_concurrent_trials", 1
                 ),
-                metric="env_runners/policy_reward_mean/focal_policy",
+                metric="evaluation/env_runners/custom_metrics/winrates/focal_policy/vs_random_mean",
                 mode="max",
                 search_alg=HyperOptSearch(),
                 scheduler=tune.schedulers.ASHAScheduler(
                     time_attr="num_agent_steps_trained",
-                    max_t=50_000_000,
-                    grace_period=5_000_000,
+                    max_t=100_000_000,
+                    grace_period=20_000_000,
                 ),
             )
         else:
@@ -227,23 +227,15 @@ class Experiment:
 
         if self.config.get("tune"):
             config.training(
-                lr=tune.choice([1e-3, 3e-4, 5e-5, 1e-5]),
+                lr=tune.loguniform(1e-4, 1e-3),
                 train_batch_size=1024,
-                entropy_coeff=tune.choice(
-                    [
-                        # 0,
-                        0.001,
-                        0.005,
-                        0.01,
-                        0.03,
-                        0.05,
-                        0.1,
-                    ]
-                ),
-                gamma=0.995,
-                vf_loss_coeff=tune.choice([0.5, 1.0]),
-                # tau=tune.choice([1, 0.1, 4e-4]),
+                entropy_coeff=tune.loguniform(1e-4, 1e-3),
+                gamma=0.99,
+                vf_loss_coeff=1.0,
+                lambda_=0.95,
             )
+            config["magnet_learning_rate_schedule"] = tune.loguniform((1e-4)/16, (1e-3)/16)
+            config["temperature_schedule"] = tune.loguniform(0.02, 0.1)
         else:
 
             config.training(
@@ -257,8 +249,8 @@ class Experiment:
                 lambda_=0.95,
             )
         
-        config["magnet_learning_rate_schedule"] = (6e-4)/16
-        config["temperature_schedule"] = 0.04
+            config["magnet_learning_rate_schedule"] = (6e-4)/16
+            config["temperature_schedule"] = 0.04
         
         return config
 
