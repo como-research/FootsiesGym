@@ -15,7 +15,7 @@ def main(*args, **kwargs):
             "debug": FLAGS.debug,
             "experiment_name": FLAGS.experiment_name,
             "tune": FLAGS.tune,
-            "checkpoint_freq": 5,
+            "checkpoint_freq": 10,
         }
     ).run()
 
