@@ -9,9 +9,9 @@ from ray.rllib.env import env_context
 from . import encoder, typing
 import os
 import platform
-import socket
 import subprocess
 import zipfile
+import portpicker
 
 from .game import constants, footsies_game
 from ..binary_manager import get_binary_manager
@@ -88,11 +88,9 @@ class FootsiesEnv(env.MultiAgentEnv):
 
         port = config.get("port", None)
         self.headless = config.get("headless", True)
-        # we'll start game servers at 50051 for training
-        # and 40051 for evaluation. Worker index starts at
-        # 1, so we won't see 40050/50050.
+        # Use portpicker to automatically find an available port
         if port is None:
-            port = self._determine_port(config)
+            port = portpicker.pick_unused_port()
 
         # If specified, we'll launch the binaries from the environment itself.
         self.server_process = None
@@ -111,51 +109,6 @@ class FootsiesEnv(env.MultiAgentEnv):
             "p2": False,
         }
 
-    def _determine_port(self, config: dict[Any, Any] | env_context.EnvContext) -> int:
-        if isinstance(config, env_context.EnvContext):
-            return self._determine_port_from_env_context(config)
-        elif isinstance(config, dict):
-            return self._determine_port_from_dict(config)
-        else:
-            raise TypeError("config must be a dict or EnvContext")
-
-    def _determine_port_from_dict(self, config: dict[Any, Any]):
-        """Find an available port starting from a base port."""
-        NUM_PORTS_TO_TRY = 1000
-        base_port = 40051 if self.evaluation else 50051
-        
-        # Try up to 1000 ports to find an available one
-        for offset in range(NUM_PORTS_TO_TRY):
-            port = base_port + offset
-            if not self._is_port_in_use(port):
-                return port
-        
-        # If we can't find an available port in the range, raise an error
-        raise RuntimeError(f"Could not find an available port in range {base_port}-{base_port + NUM_PORTS_TO_TRY - 1}")
-
-    def _determine_port_from_env_context(self, config: env_context.EnvContext):
-        start_port = 40050 if self.evaluation else 50050
-        worker_index = config.worker_index
-        num_envs_per_worker = config.get("num_envs_per_worker", 1)
-        vector_index = config.vector_index
-        
-        port = (
-            start_port
-            + worker_index * num_envs_per_worker
-            + vector_index
-        )
-
-        return port
-
-
-    def _is_port_in_use(self, port: int) -> bool:
-        """Check if a port is already in use."""
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            try:
-                sock.bind(('localhost', port))
-                return False
-            except OSError:
-                return True
 
     def _launch_binaries(self, port: int):
         # Check if we're on a supported platform
@@ -194,10 +147,7 @@ class FootsiesEnv(env.MultiAgentEnv):
             # If not, make it executable
             os.chmod(binary_path, 0o755)
 
-        # Check if the port is already in use
-        if self._is_port_in_use(port):
-            print(f"Port {port} is already in use. Skipping binary launch.")
-            return
+        # portpicker already ensures the port is available, so no need to check
 
         command = [binary_path, "--port", str(port)]
         
