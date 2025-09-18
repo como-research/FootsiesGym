@@ -82,6 +82,7 @@ class FootsiesEnv(env.MultiAgentEnv):
         self.action_delay_steps: int = self.action_delay_frames // self.frame_skip
         self.encoder = encoder.FootsiesEncoder()
         self._action_queues: dict[typing.AgentID, collections.deque[int]] = None
+        self.prev_actions: dict[typing.AgentID, int] = {agent: constants.EnvActions.NONE for agent in self.agents}
         self._reset_action_delay_queues()
 
 
@@ -348,7 +349,7 @@ class FootsiesEnv(env.MultiAgentEnv):
                 self._holding_special_charge[agent_id] = True
             elif action_is_special_charge and holding_special_charge:
                 self._holding_special_charge[agent_id] = False
-                actions_to_execute[agent_id] = constants.EnvActions.NONE
+                actions_to_execute[agent_id] = self.prev_actions[agent_id]
 
             if self._holding_special_charge[agent_id]:
                 actions_to_execute[agent_id] = self._convert_to_charge_action(
@@ -400,6 +401,7 @@ class FootsiesEnv(env.MultiAgentEnv):
         }
 
         self.last_game_state = game_state
+        self.prev_actions = actions_to_execute
 
         # ~~~ For debugging game build! ~~~
         # encoded_state = self.game.get_encoded_state()
