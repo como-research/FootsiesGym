@@ -356,5 +356,6 @@ class EMAgnetTorchPolicy(APPOTorchPolicy):
 
 
 class EMAgnetAPPO(APPO):
+    @classmethod
     def get_default_policy_class(cls, config):
         return EMAgnetTorchPolicy
