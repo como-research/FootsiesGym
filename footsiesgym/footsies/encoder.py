@@ -37,8 +37,8 @@ class EncoderMethods:
 class FootsiesEncoder:
     """Encoder class to generate observations from the game state"""
 
-    observation_size: int = 78
-    privileged_feature_names: list[str] = ["special_attack_progress", "would_next_forward_input_dash", "would_next_backward_input_dash"]
+    observation_size: int = 84
+    privileged_feature_names: list[str] = ["special_attack_progress", "would_next_forward_input_dash", "would_next_backward_input_dash", "previous_action", "is_holding_special_charge"]
 
     def __init__(self):
         self._last_common_state: np.ndarray | None = None
@@ -49,6 +49,8 @@ class FootsiesEncoder:
     def encode(
         self,
         game_state: footsies_pb2.GameState,
+        prev_actions: dict[typing.AgentID, int],
+        is_charging_special: dict[typing.AgentID, bool],
         **kwargs,
     ) -> dict[str, Any]:
         """Encodes the game state into observations for all agents.
@@ -68,10 +70,10 @@ class FootsiesEncoder:
         """
         common_state = self.encode_common_state(game_state)
         p1_encoding = self.encode_player_state(
-            game_state.player1, game_state.frame_count, **kwargs.get("p1", {})
+            game_state.player1, prev_actions["p1"], is_charging_special["p1"], **kwargs.get("p1", {})
         )
         p2_encoding = self.encode_player_state(
-            game_state.player2, game_state.frame_count, **kwargs.get("p2", {})
+            game_state.player2, prev_actions["p2"], is_charging_special["p2"], **kwargs.get("p2", {})
         )
 
         self._last_common_state = common_state
@@ -133,7 +135,8 @@ class FootsiesEncoder:
     def encode_player_state(
         self,
         player_state: footsies_pb2.PlayerState,
-        frame_count: int,
+        prev_action: int,
+        holding_special_charge: bool,
         **kwargs,
     ) -> dict[str, int | float | list]:
         """Encodes the player state into observations.
@@ -186,6 +189,8 @@ class FootsiesEncoder:
             "special_attack_progress": min(
                 player_state.special_attack_progress, 1.0
             ),
+            "previous_action": EncoderMethods.one_hot(prev_action, [i for i in range(len(constants.GameActions))]),
+            "is_holding_special_charge": int(holding_special_charge),
         }
 
         if kwargs:

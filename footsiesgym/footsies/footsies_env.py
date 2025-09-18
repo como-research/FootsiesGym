@@ -215,7 +215,7 @@ class FootsiesEnv(env.MultiAgentEnv):
                 " Observed {len(self._action_queues[agent_id])}, expected {self.action_delay_steps}"
             )
 
-    def get_obs(self, game_state):
+    def get_obs(self, game_state, prev_actions, is_charging_special: dict[typing.AgentID, bool]):
         if self.use_build_encoding:
             raise NotImplementedError(
                 "Build encoder has not yet integrated action delay! "
@@ -232,7 +232,7 @@ class FootsiesEnv(env.MultiAgentEnv):
             # }
             # return encoded_state_dict
         else:
-            return self.encoder.encode(game_state)
+            return self.encoder.encode(game_state, prev_actions, is_charging_special)
 
     def reset(
         self,
@@ -259,7 +259,7 @@ class FootsiesEnv(env.MultiAgentEnv):
         if not self.use_build_encoding:
             self.last_game_state = self.game.get_state()
 
-        observations = self.get_obs(self.last_game_state)
+        observations = self.get_obs(self.last_game_state, self.prev_actions, self._holding_special_charge)
 
         return observations, {agent: {} for agent in self.agents}
 
@@ -312,7 +312,7 @@ class FootsiesEnv(env.MultiAgentEnv):
         game_state = self.game.step_n_frames(
             p1_action=p1_action, p2_action=p2_action, n_frames=self.frame_skip
         )
-        observations = self.get_obs(game_state)
+        observations = self.get_obs(game_state, actions_to_execute, self._holding_special_charge)
 
         terminated = game_state.player1.is_dead or game_state.player2.is_dead
 
