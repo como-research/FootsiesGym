@@ -274,7 +274,7 @@ class BinaryManager:
                 
                 # Create request with user agent to avoid blocking
                 request = urllib.request.Request(url)
-                request.add_header('User-Agent', 'FootsiesGym/0.3.0')
+                request.add_header('User-Agent', 'FootsiesGym/0.3.1')
                 
                 with urllib.request.urlopen(request, timeout=30) as response:
                     # Check if we got a valid response
