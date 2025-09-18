@@ -22,6 +22,7 @@ from experimentation.callbacks import add_policies, script_metrics, winrates
 from footsiesgym.footsies import footsies_env
 from experimentation.models.modelv2 import back, lstm_model, noop
 from experimentation.utils import matchmaking
+from experimentation.components import emagnet
 
 
 def eval_policy_mapping_fn(*args, **kwargs): ...
@@ -139,7 +140,7 @@ class Experiment:
             )
             .env_runners(
                 num_env_runners=(
-                    120 if not self.config.get("debug", False) else 1
+                    40 if not self.config.get("debug", False) else 1
                 ),
                 # Must be 1 unless the port configuration is changed
                 # in footsies_env.py, which finds the port according
@@ -255,7 +256,10 @@ class Experiment:
                 vf_loss_coeff=1.0,
                 lambda_=0.95,
             )
-
+        
+        config["magnet_learning_rate_schedule"] = (6e-4)/16
+        config["temperature_schedule"] = 0.04
+        
         return config
 
     def env_creator(self, config, **kwargs):
@@ -271,14 +275,18 @@ class Experiment:
             env_creator=self.env_creator,
         )
 
+        ray.tune.registry.register_trainable(
+            "EMAgnetAPPO", emagnet.EMAgnetAPPO
+        )
+
         experiment_name = self.config.get("experiment_name")
-        results_path = f"~/ray_results/{experiment_name}"
+        results_path = os.path.expanduser(f"~/ray_results/{experiment_name}")
         experiment_exists = os.path.exists(results_path)
         if experiment_exists and experiment_name != "test":
             print("Experiment already exists, restoring...")
             tuner = tune.Tuner.restore(
                 results_path,
-                trainable=appo.APPO,
+                trainable=emagnet.EMAgnetAPPO,
             )
 
         else:
@@ -287,7 +295,7 @@ class Experiment:
             run_config = self.construct_run_config()
 
             tuner = tune.Tuner(
-                trainable=appo.APPO,
+                trainable=emagnet.EMAgnetAPPO,
                 param_space=model_config,
                 tune_config=tune_config,
                 run_config=run_config,
