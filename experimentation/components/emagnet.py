@@ -9,7 +9,6 @@ from ray.rllib.utils.torch_utils import explained_variance, sequence_mask
 from ray.rllib.policy.sample_batch import SampleBatch
 from ray.rllib.evaluation.postprocessing import Postprocessing
 from ray.rllib.utils.numpy import convert_to_numpy
-from typing import Dict, Union, Type
 from ray.rllib.models.modelv2 import ModelV2
 from ray.rllib.models.action_dist import ActionDistribution
 from ray.rllib.algorithms.ppo import PPO
