@@ -41,6 +41,15 @@ ACTION_TO_BITS = {
     GameActions.RIGHT_ATTACK: ActionBits.RIGHT_ATTACK,
 }
 
+BITS_TO_ACTIONS = {
+    ActionBits.NONE: GameActions.NONE,
+    ActionBits.LEFT: GameActions.LEFT,
+    ActionBits.RIGHT: GameActions.RIGHT,
+    ActionBits.ATTACK: GameActions.ATTACK,
+    ActionBits.LEFT_ATTACK: GameActions.LEFT_ATTACK,
+    ActionBits.RIGHT_ATTACK: GameActions.RIGHT_ATTACK,
+}
+
 
 @dataclasses.dataclass
 class ActionID:
