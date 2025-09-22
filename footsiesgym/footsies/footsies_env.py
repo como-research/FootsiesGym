@@ -62,6 +62,7 @@ class FootsiesEnv(env.MultiAgentEnv):
         if config is None:
             config = {}
         self.config = config
+        self.return_fight_state_in_infos = config.get("return_fight_state_in_infos", False)
         self.use_build_encoding = config.get("use_build_encoding", False)
         self.agents: list[typing.AgentID] = ["p1", "p2"]
         self.possible_agents: list[typing.AgentID] = self.agents.copy()
@@ -109,6 +110,40 @@ class FootsiesEnv(env.MultiAgentEnv):
             "p2": False,
         }
 
+
+    def _get_fight_state_dicts(self):
+        """
+        class FightState:
+            distance_x: float
+            is_opponent_damage: bool 
+            is_opponent_guard_break: bool
+            is_opponent_blocking: bool
+            is_opponent_normal_attack: bool
+            is_opponent_special_attack: bool
+            is_facing_right: bool
+        """
+        fight_state_dict = {
+            "p1": {},
+            "p2": {},
+        }
+        p1_state, p2_state = self.last_game_state.player1, self.last_game_state.player2
+
+        dist_x = np.abs(p1_state.player_position_x - p2_state.player_position_x)
+
+        for player, opp_state in zip(["p1", "p2"], [p2_state, p1_state]):
+            fight_state_dict[player]["distance_x"] = dist_x
+            fight_state_dict[player]["is_opponent_damage"] = opp_state.current_action_id == constants.ActionID.DAMAGE
+            fight_state_dict[player]["is_opponent_guard_break"] = opp_state.current_action_id == constants.ActionID.GUARD_BREAK
+            fight_state_dict[player]["is_opponent_blocking"] = opp_state.current_action_id in [constants.ActionID.GUARD_CROUCH, constants.ActionID.GUARD_STAND, constants.ActionID.GUARD_M]
+            fight_state_dict[player]["is_opponent_normal_attack"] = opp_state.current_action_id in [constants.ActionID.N_ATTACK, constants.ActionID.B_ATTACK]
+            fight_state_dict[player]["is_opponent_special_attack"] = opp_state.current_action_id in [constants.ActionID.N_SPECIAL, constants.ActionID.B_SPECIAL]
+    
+
+        for player, state in zip(["p1", "p2"], [p1_state, p2_state]):
+            fight_state_dict[player]["is_facing_right"] = state.is_face_right
+
+
+        return fight_state_dict
 
     def _launch_binaries(self, port: int):
         # Check if we're on a supported platform
@@ -256,12 +291,11 @@ class FootsiesEnv(env.MultiAgentEnv):
 
         self.encoder.reset()
 
-        if not self.use_build_encoding:
-            self.last_game_state = self.game.get_state()
+        self.last_game_state = self.game.get_state()
 
         observations = self.get_obs(self.last_game_state, self.prev_actions, self._holding_special_charge)
 
-        return observations, {agent: {} for agent in self.agents}
+        return observations, self.get_infos()
 
     def step(self, actions: dict[typing.AgentID, typing.ActionType]) -> tuple[
         dict[typing.AgentID, typing.ObsType],
@@ -373,7 +407,10 @@ class FootsiesEnv(env.MultiAgentEnv):
         return observations, rewards, terminateds, truncateds, self.get_infos()
 
     def get_infos(self):
-        return {agent: {} for agent in self.agents}
+        infos = {agent: {} for agent in self.agents}
+        if self.return_fight_state_in_infos:
+            infos.update(self._get_fight_state_dicts())
+        return infos
 
     def _build_charged_special_queue(self):
         assert self.SPECIAL_CHARGE_FRAMES % self.frame_skip == 0

@@ -17,11 +17,11 @@ try:
 except ImportError:
     pygame = None
 
-MODEL_FRAME_SKIP = 4
+MODEL_FRAME_SKIP = 1
 
 MODULES = {
-    "p1": "human",  # human must be p1 for correct control mapping
-    "p2": "noop",  # Add the name of a policy in the ModuleRepository here
+    "p1": "footsies_bot",  # human must be p1 for correct control mapping
+    "p2": "random",  # Add the name of a policy in the ModuleRepository here
 }
 
 if "human" in MODULES.values():
@@ -30,6 +30,12 @@ if "human" in MODULES.values():
     ), "PyGame is required for human control. Install pygame with `pip install pygame`."
     pygame.init()
     screen = pygame.display.set_mode((1, 1), pygame.NOFRAME)
+
+
+if "footsies_bot" in MODULES.values():
+    from footsiesgym.footsies.game import footsies_bot as footsies_bot_
+    footsies_bot = footsies_bot_.FootsiesBot(frame_skip=4)
+
 
 
 def get_human_action() -> int:
@@ -51,7 +57,7 @@ def get_human_action() -> int:
         return EnvActions.NONE
 
 
-MAX_FPS = 30
+MAX_FPS = 60
 
 
 def action_from_logits(logits: np.ndarray) -> int:
@@ -64,7 +70,7 @@ def play_local_episode(
     modules: dict[rllib_typing.AgentID, rllib_policy.Policy],
 ) -> dict[str, Any]:
 
-    obs, _ = env.reset()
+    obs, infos = env.reset()
     result = {"p1_reward": 0, "p2_reward": 0}
 
     terminateds = {"__all__": False}
@@ -88,6 +94,8 @@ def play_local_episode(
                         ].sample()
                     elif MODULES[agent_id] == "noop":
                         last_actions[agent_id] = EnvActions.NONE
+                    elif MODULES[agent_id] == "footsies_bot":
+                        last_actions[agent_id] = footsies_bot.get_next_input(env_id="local_env", agent_id=agent_id, fight_state_dict=infos[agent_id])
                     else:
                         action, _, fetch = (
                             rllib_policy_utils.local_policy_inference(
@@ -101,7 +109,7 @@ def play_local_episode(
                 actions[agent_id] = last_actions[agent_id]
         frame += 1
 
-        obs, reward, terminateds, truncateds, _ = env.step(actions)
+        obs, reward, terminateds, truncateds, infos = env.step(actions)
         result["p1_reward"] += reward["p1"]
         result["p2_reward"] += reward["p2"]
         result["p1_win"] = reward["p1"] >= 1
@@ -122,17 +130,19 @@ def main():
     for agent_id, policy_id in MODULES.items():
         modules[agent_id] = (
             module_repository.ModuleRepository.get(policy_id)
-            if policy_id != "human"
-            else "human"
+            if policy_id not in ["human", "footsies_bot"]
+            else policy_id
         )
 
     env = footsies_env.FootsiesEnv(
         config={
-            "frame_skip": 4,
-            "observation_delay": 16,
-            "max_t": 4000,
-            "port": 80051,
+            "frame_skip": 1,
+            "action_delay": 5,
+            "max_t": 1000,
             "guard_break_reward": 0,
+            "return_fight_state_in_infos": True,
+            "launch_binaries": True,
+            "headless": False,
         }
     )
 
