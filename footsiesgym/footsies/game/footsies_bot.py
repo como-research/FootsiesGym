@@ -196,10 +196,9 @@ class FootsiesBot:
             randint_ = random.randint(0, 3)
             if randint_ <= 1:
                 return ActionSequences.noop_movement(steps=8 // self.frame_skip)
-            else: # randint_ == 1:
+            else:
                 return self.one_hit_immediate_attack()
-            # else:
-            #     return self.two_hit_immediate_attack()
+
         elif fight_state.distance_x > 2.0:
             self.last_attack_dist = 2.0
             randint_ = random.randint(0, 6)
@@ -226,23 +225,19 @@ class FootsiesBot:
         sequence += [constants.ActionBits.NONE] * max(3 // self.frame_skip, 1)
         sequence += [constants.ActionBits.ATTACK]
         sequence += [constants.ActionBits.NONE] * max(4 // self.frame_skip, 1)
-        # print("Triggering Two-hit immediate attack", sequence)
         return sequence
     
     def one_hit_immediate_attack(self) -> list[ActionBits]:
         sequence = [constants.ActionBits.ATTACK]
         sequence += [constants.ActionBits.NONE] * max(8 // self.frame_skip, 1)
-        # print("Triggering One-hit immediate attack", sequence)
         return sequence
 
     def immediate_special_attack(self) -> list[ActionBits]:
         sequence = [constants.ActionBits.ATTACK] * max(60 // self.frame_skip, 1)
         sequence += [constants.ActionBits.NONE] * max(4 // self.frame_skip, 1)
-        # print("Triggering Special immediate attack", sequence)
         return sequence
 
     def delayed_special_attack(self) -> list[ActionBits]:
         sequence = [constants.ActionBits.ATTACK] * max(120 // self.frame_skip, 1)
         sequence += [constants.ActionBits.NONE] * max(4 // self.frame_skip, 1)
-        # print("Triggering Delayed special attack", sequence)
         return sequence
