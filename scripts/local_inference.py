@@ -58,6 +58,8 @@ def get_human_action() -> int:
 
 
 MAX_FPS = 60
+DEATH_PROP_ATK = collections.defaultdict(lambda: 0)
+DEATH_PROP_MOVE = collections.defaultdict(lambda: 0)
 
 
 def action_from_logits(logits: np.ndarray) -> int:
@@ -119,7 +121,10 @@ def play_local_episode(
             time.sleep(1 / MAX_FPS)
 
     if terminateds["__all__"] or truncateds["__all__"]:
-        time.sleep(3)
+        if reward["p2"] >= 1:
+            DEATH_PROP_ATK[footsies_bot.last_attack_dist] += 1
+            DEATH_PROP_MOVE[footsies_bot.last_move_dist] += 1
+        time.sleep(1)
 
     return result
 
@@ -136,8 +141,8 @@ def main():
 
     env = footsies_env.FootsiesEnv(
         config={
-            "frame_skip": 1,
-            "action_delay": 5,
+            "frame_skip": 4,
+            "action_delay": 8,
             "max_t": 1000,
             "guard_break_reward": 0,
             "return_fight_state_in_infos": True,
@@ -157,6 +162,14 @@ def main():
         print(
             f"{num_games} games played. {MODULES['p1']} winrate: {np.round(cumulative_results['p1_win'] / num_games, 2)}"
         )
+        if cumulative_results["p2_win"] > 0:
+            death_prop_atk_normalized = {k: v / cumulative_results["p2_win"] for k, v in DEATH_PROP_ATK.items()}
+            death_prop_move_normalized = {k: v / cumulative_results["p2_win"] for k, v in DEATH_PROP_MOVE.items()}
+            print(f"Death prop atk: {death_prop_atk_normalized}")
+            print(f"Death prop move: {death_prop_move_normalized}")
+        else:
+            print(f"Death prop atk: {DEATH_PROP_ATK}")
+            print(f"Death prop move: {DEATH_PROP_MOVE}")
 
 
 if __name__ == "__main__":

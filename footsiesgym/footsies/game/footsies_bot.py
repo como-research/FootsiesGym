@@ -82,13 +82,13 @@ class FootsiesBot:
             self.override_active = False
         action_bits |= attack_queue.popleft()
 
-        # quick_whiff_punish_prob = 1.0
-        # if random.rand() < quick_whiff_punish_prob and not self.override_active and (fight_state.distance_x < 2.0 and (fight_state.is_opponent_damage or fight_state.is_opponent_guard_break or fight_state.is_opponent_special_attack)):
-        #     print("quick quiff overrride!")
-        #     attack_queue.clear()
-        #     attack_queue.extend(self.two_hit_immediate_attack())
-        #     action_bits = attack_queue.popleft()
-        #     self.override_active = True
+        quick_whiff_punish_prob = 1.0
+        if random.rand() < quick_whiff_punish_prob and not self.override_active and fight_state.distance_x < 2.5 and (fight_state.is_opponent_damage or fight_state.is_opponent_guard_break or fight_state.is_opponent_special_attack):
+            print("quick quiff overrride!")
+            attack_queue.clear()
+            attack_queue.extend(self.two_hit_immediate_attack())
+            action_bits = attack_queue.popleft()
+            self.override_active = True
 
         # special_punish_prob = 1.0
         # if random.rand() < special_punish_prob and not self.override_active and (fight_state.distance_x < 2.0 and fight_state.is_opponent_special_attack):
@@ -107,49 +107,54 @@ class FootsiesBot:
 
     def _select_movement(self, fight_state: FightState) -> list[ActionBits]:
         if fight_state.distance_x > 4.0:
+            self.last_move_dist = 4.0
             return self.far_approach(dash=random.choice([True, False]), is_facing_right=fight_state.is_facing_right)
-        elif fight_state.distance_x > 3.0:
+        elif fight_state.distance_x > 3.5:
+            self.last_move_dist = 3.5
             randint_ = random.randint(0, 7)
             if randint_ <= 3:
                 return self.mid_approach(dash=random.choice([True, False]), is_facing_right=fight_state.is_facing_right)
             elif randint_ <= 5:
                 return self.far_approach(dash=random.choice([True, False]), is_facing_right=fight_state.is_facing_right)
             else:
-                return ActionSequences.noop_movement(steps=30 // self.frame_skip)
-        elif fight_state.distance_x > 2.5:
+                return ActionSequences.noop_movement(steps=8 // self.frame_skip)
+        elif fight_state.distance_x > 3.0:
+            self.last_move_dist = 3.0
             randint_ = random.randint(0, 5)
-            if randint_ <= 1:
+            if randint_ <= 0:
                 return self.mid_approach(dash=random.choice([True, False]), is_facing_right=fight_state.is_facing_right)
-            elif randint_ <= 3:
+            elif randint_ <= 4:
                 return self.fallback_movement(dash=random.choice([True, False]), is_facing_right=fight_state.is_facing_right)
             else:
-                return ActionSequences.noop_movement(steps=30 // self.frame_skip)
+                return ActionSequences.noop_movement(steps=8 // self.frame_skip)
         elif fight_state.distance_x > 2.0:
+            self.last_move_dist = 2.0
             randint_ = random.randint(0, 4)
-            if randint_ <= 1:
+            if randint_ <= 2:
                 return self.fallback_movement(dash=random.choice([True, False]), is_facing_right=fight_state.is_facing_right)
             else:
-                return ActionSequences.noop_movement(steps=30 // self.frame_skip)
+                return ActionSequences.noop_movement(steps=8 // self.frame_skip)
         else:
+            self.last_move_dist = 1.0
             randint_ = random.randint(0, 3)
             if randint_ <= 1:
                 return self.fallback_movement(dash=random.choice([True, False]), is_facing_right=fight_state.is_facing_right)
             else:
-                return ActionSequences.noop_movement(steps=30 // self.frame_skip)
+                return ActionSequences.noop_movement(steps=12 // self.frame_skip)
 
     def far_approach(self, dash: bool, is_facing_right: bool) -> list[ActionBits]:
         """Get action sequences for a far approach, either two dashes in or walking in with some backward inputs."""
         if dash:
             return [
                 *ActionSequences.forward_dash(is_facing_right),
-                *ActionSequences.back_input(is_facing_right, steps=20 // self.frame_skip),
+                *ActionSequences.back_input(is_facing_right, steps=10 // self.frame_skip),
             ] * 2
         
         return [
-            *ActionSequences.forward_input(is_facing_right=is_facing_right, steps=30 // self.frame_skip),
-            *ActionSequences.back_input(is_facing_right=is_facing_right, steps=10 // self.frame_skip),
-            *ActionSequences.forward_input(is_facing_right=is_facing_right, steps=20 // self.frame_skip),
-            *ActionSequences.back_input(is_facing_right=is_facing_right, steps=10 // self.frame_skip),
+            *ActionSequences.forward_input(is_facing_right=is_facing_right, steps=16 // self.frame_skip),
+            *ActionSequences.back_input(is_facing_right=is_facing_right, steps=12 // self.frame_skip),
+            *ActionSequences.forward_input(is_facing_right=is_facing_right, steps=8 // self.frame_skip),
+            *ActionSequences.back_input(is_facing_right=is_facing_right, steps=4 // self.frame_skip),
         ]
         
     def mid_approach(self, dash: bool, is_facing_right: bool) -> list[ActionBits]:
@@ -157,14 +162,14 @@ class FootsiesBot:
         if dash:
             return [
                 *ActionSequences.forward_dash(is_facing_right),
-                *ActionSequences.back_input(is_facing_right, steps=20 // self.frame_skip),
+                *ActionSequences.back_input(is_facing_right, steps=8 // self.frame_skip),
             ]
         
         return [
-            *ActionSequences.forward_input(is_facing_right=is_facing_right, steps=20 // self.frame_skip),
-            *ActionSequences.back_input(is_facing_right=is_facing_right, steps=10 // self.frame_skip),
-            *ActionSequences.forward_input(is_facing_right=is_facing_right, steps=20 // self.frame_skip),
-            *ActionSequences.back_input(is_facing_right=is_facing_right, steps=10 // self.frame_skip),
+            *ActionSequences.forward_input(is_facing_right=is_facing_right, steps=16 // self.frame_skip),
+            *ActionSequences.back_input(is_facing_right=is_facing_right, steps=12 // self.frame_skip),
+            *ActionSequences.forward_input(is_facing_right=is_facing_right, steps=16 // self.frame_skip),
+            *ActionSequences.back_input(is_facing_right=is_facing_right, steps=12 // self.frame_skip),
         ]
 
     def fallback_movement(self, dash: bool, is_facing_right: bool) -> list[ActionBits]:
@@ -172,52 +177,62 @@ class FootsiesBot:
         if dash:
             return [
                 *ActionSequences.back_dash(is_facing_right),
-                *ActionSequences.back_input(is_facing_right, steps=28 // self.frame_skip),
+                *ActionSequences.back_input(is_facing_right, steps=16 // self.frame_skip),
             ] 
         
         return [
-            *ActionSequences.back_input(is_facing_right=is_facing_right, steps=28 // self.frame_skip),
+            *ActionSequences.back_input(is_facing_right=is_facing_right, steps=24 // self.frame_skip),
         ]
         
     def _select_attack(self, fight_state: FightState) -> list[ActionBits]:
         """Get action sequences for an attack."""
         if (fight_state.is_opponent_damage or fight_state.is_opponent_guard_break or fight_state.is_opponent_special_attack):
             return self.two_hit_immediate_attack()
-        elif fight_state.distance_x > 4.0:
+        elif fight_state.distance_x > 3.5:
+            self.last_attack_dist = 3.5
             # NOTE(chase): I know this is incorrect, I'm copying the logic exactly from Footsies
             # where the delayed special here will never be triggered (we need randint(0, 5) for that).
-            randint_ = random.randint(0, 5)
+            randint_ = random.randint(0, 4)
             if randint_ <= 3:
                 return ActionSequences.noop_movement(steps=20 // self.frame_skip)
             else: 
                 # TODO: This is unreachable. If desired, fix it. 
                 return self.delayed_special_attack()
         elif fight_state.distance_x > 3.0:
+            self.last_attack_dist = 3.0
             if fight_state.is_opponent_normal_attack:
                 return self.two_hit_immediate_attack()
+            else: 
+                return ActionSequences.noop_movement(steps=8 // self.frame_skip)
             
-            randint_ = random.randint(0, 5)
-            if randint_ <= 1:
-                return ActionSequences.noop_movement(steps=30 // self.frame_skip)
-            elif randint_ <= 3:
-                return self.one_hit_immediate_attack()
-            else:
-                return self.delayed_special_attack()
+
+            
+            # randint_ = random.randint(0, 5)
+            # if randint_ <= 3:
+            #     return ActionSequences.noop_movement(steps=8 // self.frame_skip)
+            # else: # randint_ <= 4:
+            #     return self.one_hit_immediate_attack()
+            # else:
+            #     return self.delayed_special_attack()
         elif fight_state.distance_x > 2.5:
+            self.last_attack_dist = 2.5
             randint_ = random.randint(0, 3)
-            if randint_ == 0:
-                return ActionSequences.noop_movement(steps=30 // self.frame_skip)
-            elif randint_ == 1:
+            if randint_ <= 1:
+                return ActionSequences.noop_movement(steps=8 // self.frame_skip)
+            else: # randint_ == 1:
                 return self.one_hit_immediate_attack()
-            else:
-                return self.two_hit_immediate_attack()
+            # else:
+            #     return self.two_hit_immediate_attack()
         elif fight_state.distance_x > 2.0:
+            self.last_attack_dist = 2.0
             randint_ = random.randint(0, 6)
             if randint_ <= 1:
+                return ActionSequences.noop_movement(steps=4 // self.frame_skip)
+            elif randint_ <= 2:
                 return self.one_hit_immediate_attack()
             elif randint_ <= 3:
                 return self.two_hit_immediate_attack()
-            elif randint_ == 4:
+            elif randint_ <= 4:
                 return self.immediate_special_attack()
             else:
                 return self.delayed_special_attack()
@@ -239,7 +254,7 @@ class FootsiesBot:
     
     def one_hit_immediate_attack(self) -> list[ActionBits]:
         sequence = [constants.ActionBits.ATTACK]
-        sequence += [constants.ActionBits.NONE] * max(18 // self.frame_skip, 1)
+        sequence += [constants.ActionBits.NONE] * max(8 // self.frame_skip, 1)
         # print("Triggering One-hit immediate attack", sequence)
         return sequence
 
