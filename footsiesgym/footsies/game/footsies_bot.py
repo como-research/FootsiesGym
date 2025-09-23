@@ -82,9 +82,8 @@ class FootsiesBot:
             self.override_active = False
         action_bits |= attack_queue.popleft()
 
-        quick_whiff_punish_prob = 1.0
+        quick_whiff_punish_prob = 0.90
         if random.rand() < quick_whiff_punish_prob and not self.override_active and fight_state.distance_x < 2.5 and (fight_state.is_opponent_damage or fight_state.is_opponent_guard_break or fight_state.is_opponent_special_attack):
-            print("quick quiff overrride!")
             attack_queue.clear()
             attack_queue.extend(self.two_hit_immediate_attack())
             action_bits = attack_queue.popleft()
@@ -120,20 +119,20 @@ class FootsiesBot:
                 return ActionSequences.noop_movement(steps=8 // self.frame_skip)
         elif fight_state.distance_x > 3.0:
             self.last_move_dist = 3.0
-            randint_ = random.randint(0, 5)
+            randint_ = random.randint(0, 6)
             if randint_ <= 0:
                 return self.mid_approach(dash=random.choice([True, False]), is_facing_right=fight_state.is_facing_right)
-            elif randint_ <= 4:
+            elif randint_ <= 5:
                 return self.fallback_movement(dash=random.choice([True, False]), is_facing_right=fight_state.is_facing_right)
             else:
                 return ActionSequences.noop_movement(steps=8 // self.frame_skip)
         elif fight_state.distance_x > 2.0:
             self.last_move_dist = 2.0
-            randint_ = random.randint(0, 4)
-            if randint_ <= 2:
+            randint_ = random.randint(0, 5)
+            if randint_ <= 3:
                 return self.fallback_movement(dash=random.choice([True, False]), is_facing_right=fight_state.is_facing_right)
             else:
-                return ActionSequences.noop_movement(steps=8 // self.frame_skip)
+                return ActionSequences.noop_movement(steps=4 // self.frame_skip)
         else:
             self.last_move_dist = 1.0
             randint_ = random.randint(0, 3)
@@ -227,7 +226,7 @@ class FootsiesBot:
             self.last_attack_dist = 2.0
             randint_ = random.randint(0, 6)
             if randint_ <= 1:
-                return ActionSequences.noop_movement(steps=4 // self.frame_skip)
+                return ActionSequences.noop_movement(steps=8 // self.frame_skip)
             elif randint_ <= 2:
                 return self.one_hit_immediate_attack()
             elif randint_ <= 3:
