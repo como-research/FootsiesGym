@@ -210,9 +210,9 @@ class Experiment:
                                 matchmaking.Matchup(
                                     "focal_policy",
                                     eval_policy,
-                                    1 / (len(eval_policies) + 1),
+                                    1 / (len(eval_policies) + 2),
                                 )
-                                for eval_policy in eval_policies + ["footsies_bot"]
+                                for eval_policy in eval_policies + ["footsies_bot", "random"]
                             ]
                         ).policy_mapping_fn,
                     },
