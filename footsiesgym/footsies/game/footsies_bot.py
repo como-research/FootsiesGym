@@ -88,19 +88,6 @@ class FootsiesBot:
             attack_queue.extend(self.two_hit_immediate_attack())
             action_bits = attack_queue.popleft()
             self.override_active = True
-
-        # special_punish_prob = 1.0
-        # if random.rand() < special_punish_prob and not self.override_active and (fight_state.distance_x < 2.0 and fight_state.is_opponent_special_attack):
-        #     print("special punish overrride!")
-        #     action_bits = constants.ActionBits.NONE
-        #     attack_queue.clear()
-        #     move_queue.clear()
-        #     move_queue.extend(ActionSequences.forward_dash(is_facing_right=fight_state.is_facing_right))
-        #     attack_queue.extend([constants.ActionBits.NONE] * 3 + self.two_hit_immediate_attack())
-            
-        #     action_bits |= move_queue.popleft()
-        #     action_bits |= attack_queue.popleft()
-        #     self.override_active = True
         
         return constants.BITS_TO_ACTIONS[action_bits]
 
@@ -203,16 +190,7 @@ class FootsiesBot:
                 return self.two_hit_immediate_attack()
             else: 
                 return ActionSequences.noop_movement(steps=8 // self.frame_skip)
-            
 
-            
-            # randint_ = random.randint(0, 5)
-            # if randint_ <= 3:
-            #     return ActionSequences.noop_movement(steps=8 // self.frame_skip)
-            # else: # randint_ <= 4:
-            #     return self.one_hit_immediate_attack()
-            # else:
-            #     return self.delayed_special_attack()
         elif fight_state.distance_x > 2.5:
             self.last_attack_dist = 2.5
             randint_ = random.randint(0, 3)
