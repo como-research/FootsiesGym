@@ -67,13 +67,14 @@ class FootsiesEnv(env.MultiAgentEnv):
         self.possible_agents: list[typing.AgentID] = self.agents.copy()
         self._agent_ids: set[typing.AgentID] = set(self.agents)
         self.guard_break_reward_value = self.config.get("guard_break_reward", 0)
+        self.win_reward_scaling_coeff = self.config.get("win_reward_scaling_coeff", 10.0)
 
         self.evaluation = config.get("evaluation", False)
 
         self.t: int = 0
         self.max_t: int = config.get("max_t", 1000)
         self.frame_skip: int = config.get("frame_skip", 4)
-        self.action_delay_frames: int = config.get("action_delay", 16)
+        self.action_delay_frames: int = config.get("action_delay", 8)
 
         assert (
             self.action_delay_frames % self.frame_skip == 0
@@ -323,6 +324,7 @@ class FootsiesEnv(env.MultiAgentEnv):
             "p2": int(game_state.player1.is_dead)
             - int(game_state.player2.is_dead),
         }
+        rewards = {k: v * self.win_reward_scaling_coeff for k, v in rewards.items()}
 
         if self.guard_break_reward_value != 0:
             p1_prev_guard_health = self.last_game_state.player1.guard_health

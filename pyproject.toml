@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "footsies-gym"
-version = "0.3.0"
+version = "0.3.2"
 description = "A reinforcement learning environment for HiFight's Footsies game"
 readme = "README.md"
 license = "MIT"
@@ -40,6 +40,7 @@ dependencies = [
     "ray[rllib]>=2.46.0",
     "natsort",
     "pyarrow>=15.0.0",
+    "portpicker==1.6.0",
 ]
 
 [project.optional-dependencies]
