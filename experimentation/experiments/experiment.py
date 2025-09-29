@@ -58,7 +58,7 @@ class Experiment:
                 )
             },
             callbacks=(
-                [WandbLoggerCallback(project="Footsies-v0.3.0")]
+                [WandbLoggerCallback(project="Footsies-v0.3.2")]
                 if not self.config.get("debug", False)
                 else None
             ),
