@@ -90,7 +90,7 @@ class Experiment:
                 scheduler=tune.schedulers.ASHAScheduler(
                     time_attr="num_agent_steps_trained",
                     max_t=100_000_000,
-                    grace_period=20_000_000,
+                    grace_period=30_000_000,
                 ),
             )
         else:
