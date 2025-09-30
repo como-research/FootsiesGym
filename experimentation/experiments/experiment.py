@@ -118,9 +118,9 @@ class Experiment:
             .environment(
                 "FootsiesEnv",
                 env_config={
-                    "max_t": 1000,
+                    "max_t": 4000,
                     "frame_skip": 4,
-                    "action_delay": 16,
+                    "action_delay": 8,
                     "num_envs_per_worker": self.NUM_ENVS_PER_ENV_RUNNER,
                     "guard_break_reward": 3.0,
                     "win_reward_scaling_coeff": 10.0,
