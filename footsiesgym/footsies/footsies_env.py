@@ -388,14 +388,22 @@ class FootsiesEnv(env.MultiAgentEnv):
 
         # If the other player is dead, reward the player who is alive.
         # We apply rewards as remaining_reward_budget * is_dead + guard_break. 
-        is_dead = {
-            "p1": int(game_state.player2.is_dead)
-            - int(game_state.player1.is_dead),
+        # NOTE(chase): Both players can die at the same time in which case
+        # the episode will still be zero-sum, but the remaining budget rewards 
+        # may differ. 
+        opponent_is_dead = {
+            "p1": int(game_state.player2.is_dead),
             "p2": int(game_state.player1.is_dead)
-            - int(game_state.player2.is_dead),
         }
-        rewards = {a_id: v + self.reward_budget[a_id] * is_dead[a_id] for a_id, v in rewards.items()}
 
+        for a_id, opp_dead in opponent_is_dead.items():
+            other_agent_id = "p2" if a_id == "p1" else "p1"
+            
+            # Reward the agent for the opponent dying
+            rewards[a_id] += self.reward_budget[a_id] * opp_dead
+
+            # Penalize the opponent for dying
+            rewards[other_agent_id] -= self.reward_budget[a_id] * opp_dead
 
 
         terminateds = {
