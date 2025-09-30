@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "footsies-gym"
-version = "0.3.3"
+version = "0.3.4"
 description = "A reinforcement learning environment for HiFight's Footsies game"
 readme = "README.md"
 license = "MIT"
