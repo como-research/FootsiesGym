@@ -67,8 +67,15 @@ class FootsiesEnv(env.MultiAgentEnv):
         self.agents: list[typing.AgentID] = ["p1", "p2"]
         self.possible_agents: list[typing.AgentID] = self.agents.copy()
         self._agent_ids: set[typing.AgentID] = set(self.agents)
-        self.guard_break_reward_value = self.config.get("guard_break_reward", 0)
         self.win_reward_scaling_coeff = self.config.get("win_reward_scaling_coeff", 10.0)
+        self.guard_break_reward_value = self.config.get("guard_break_reward", 0)
+        self.use_reward_budget = self.config.get("use_reward_budget", True)
+        assert self.guard_break_reward_value * 3 < self.win_reward_scaling_coeff, (
+            "Guard break reward total must be less than the win reward (guard break reward * 3 < win reward)"
+        )
+
+        self.reward_budget = {agent: self.win_reward_scaling_coeff for agent in self.agents}
+
 
         self.evaluation = config.get("evaluation", False)
 
@@ -290,6 +297,9 @@ class FootsiesEnv(env.MultiAgentEnv):
 
         self._reset_action_delay_queues()
 
+        # Reset reward budget
+        self.reward_budget = {agent: self.win_reward_scaling_coeff for agent in self.agents}
+
         self.encoder.reset()
 
         self.last_game_state = self.game.get_state()
@@ -351,27 +361,42 @@ class FootsiesEnv(env.MultiAgentEnv):
 
         terminated = game_state.player1.is_dead or game_state.player2.is_dead
 
-        # Zero-sum game: 1 if other player is dead, -1 if you're dead:
-        rewards = {
-            "p1": int(game_state.player2.is_dead)
-            - int(game_state.player1.is_dead),
-            "p2": int(game_state.player1.is_dead)
-            - int(game_state.player2.is_dead),
-        }
-        rewards = {k: v * self.win_reward_scaling_coeff for k, v in rewards.items()}
 
+        rewards = {a_id: 0.0 for a_id in self.agents} 
+        # Apply guard-break reward, if using. 
         if self.guard_break_reward_value != 0:
             p1_prev_guard_health = self.last_game_state.player1.guard_health
             p2_prev_guard_health = self.last_game_state.player2.guard_health
             p1_guard_health = game_state.player1.guard_health
             p2_guard_health = game_state.player2.guard_health
 
+            # Guard break reward is deducted from the overall "budget" of reward
+            # to avoid biasing gameplay towards guard break. The total reward
+            # always remains the same, but we can make the signal more dense by 
+            # providing guard break rewards. This can be turned off with 
+            # "use_reward_budget=False" in the environment config.
             if p2_guard_health < p2_prev_guard_health:
+                if self.use_reward_budget:
+                    self.reward_budget["p1"] -= self.guard_break_reward_value
                 rewards["p1"] += self.guard_break_reward_value
                 rewards["p2"] -= self.guard_break_reward_value
             if p1_guard_health < p1_prev_guard_health:
+                if self.use_reward_budget:
+                    self.reward_budget["p2"] -= self.guard_break_reward_value
                 rewards["p2"] += self.guard_break_reward_value
                 rewards["p1"] -= self.guard_break_reward_value
+
+        # If the other player is dead, reward the player who is alive.
+        # We apply rewards as remaining_reward_budget * is_dead + guard_break. 
+        is_dead = {
+            "p1": int(game_state.player2.is_dead)
+            - int(game_state.player1.is_dead),
+            "p2": int(game_state.player1.is_dead)
+            - int(game_state.player2.is_dead),
+        }
+        rewards = {a_id: v + self.reward_budget[a_id] * is_dead[a_id] for a_id, v in rewards.items()}
+
+
 
         terminateds = {
             "p1": terminated,
