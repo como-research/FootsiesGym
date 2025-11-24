@@ -45,9 +45,9 @@ class FootsiesEnv(env.MultiAgentEnv):
         self.agents: list[typing.AgentID] = ["p1", "p2"]
         self.possible_agents: list[typing.AgentID] = self.agents.copy()
         self._agent_ids: set[typing.AgentID] = set(self.agents)
-        self.win_reward_scaling_coeff = self.config.get("win_reward_scaling_coeff", 10.0)
-        self.guard_break_reward_value = self.config.get("guard_break_reward", 3.0)
-        self.use_reward_budget = self.config.get("use_reward_budget", True)
+        self.win_reward_scaling_coeff = self.config.get("win_reward_scaling_coeff", 1.0)
+        self.guard_break_reward_value = self.config.get("guard_break_reward", 0.0)
+        self.use_reward_budget = self.config.get("use_reward_budget", False)
         assert self.guard_break_reward_value * 3 < self.win_reward_scaling_coeff, (
             "Guard break reward total must be less than the win reward (guard break reward * 3 < win reward)"
         )
