@@ -34,28 +34,6 @@ class FootsiesEnv(env.MultiAgentEnv):
         }
     )
 
-    action_space = spaces.Dict(
-        {
-            agent: spaces.Discrete(
-                len(
-                    [
-                        constants.EnvActions.NONE,
-                        constants.EnvActions.BACK,
-                        constants.EnvActions.FORWARD,
-                        constants.EnvActions.ATTACK,
-                        constants.EnvActions.BACK_ATTACK,
-                        constants.EnvActions.FORWARD_ATTACK,
-                        # NOTE(chase): This is a special input that holds down
-                        # attack for 60 frames. It's just too long of a sequence
-                        # to easily learn by holding ATTACK for so long.
-                        constants.EnvActions.SPECIAL_CHARGE,
-                    ]
-                )
-            )
-            for agent in ["p1", "p2"]
-        }
-    )
-
     def __init__(self, config: dict[Any, Any] = None):
         super(FootsiesEnv, self).__init__()
 
@@ -72,6 +50,37 @@ class FootsiesEnv(env.MultiAgentEnv):
         self.use_reward_budget = self.config.get("use_reward_budget", True)
         assert self.guard_break_reward_value * 3 < self.win_reward_scaling_coeff, (
             "Guard break reward total must be less than the win reward (guard break reward * 3 < win reward)"
+        )
+
+
+        available_actions = [
+            constants.EnvActions.NONE,
+            constants.EnvActions.BACK,
+            constants.EnvActions.FORWARD,
+            constants.EnvActions.ATTACK,
+            constants.EnvActions.BACK_ATTACK,
+            constants.EnvActions.FORWARD_ATTACK,
+        ]
+
+        # Add special charge action, if desired. The special actions
+        # require that the ATTACK button be held for 60 frames. Depending
+        # on enviroment parameters, this may be exceedingly long
+        # for the agent to learn to hold a single button. The SPECIAL_CHARGE
+        # action toggles whether or not the agent wishes to hold ATTACK. 
+        # For example:
+        #  Agent selects:  [SPECIAL_CHARGE, NONE, SPECIAL_CHARGE]
+        #  Executed Action: [ATTACK, ATTACK, NONE]
+        # The second special charge deactivates the held ATTACK.
+        if config.get("use_special_charge_action", False):
+            available_actions.append(constants.EnvActions.SPECIAL_CHARGE)
+
+        self.action_space = spaces.Dict(
+            {
+                agent: spaces.Discrete(
+                    len(available_actions)
+                )
+                for agent in ["p1", "p2"]
+            }
         )
 
         self.reward_budget = {agent: self.win_reward_scaling_coeff for agent in self.agents}
