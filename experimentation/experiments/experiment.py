@@ -20,7 +20,7 @@ from ray.tune.search.hyperopt import HyperOptSearch
 
 from experimentation.callbacks import add_policies, script_metrics, winrates
 from footsiesgym.footsies import footsies_env
-from experimentation.models.modelv2 import back, lstm_model, noop
+from experimentation.models.modelv2 import back, lstm_model, noop, footsies_bot
 from experimentation.utils import matchmaking
 from experimentation.components import emagnet
 
@@ -118,12 +118,15 @@ class Experiment:
             .environment(
                 "FootsiesEnv",
                 env_config={
-                    "max_t": 1000,
+                    "max_t": 4000,
                     "frame_skip": 4,
-                    "action_delay": 16,
+                    "action_delay": 8,
                     "num_envs_per_worker": self.NUM_ENVS_PER_ENV_RUNNER,
-                    "guard_break_reward": 0.0,
+                    "guard_break_reward": 3.0,
+                    "win_reward_scaling_coeff": 10.0,
+                    "use_reward_budget": True,
                     "launch_binaries": True,
+                    "return_fight_state_in_infos": True,
                 },
             )
             .api_stack(
@@ -182,6 +185,11 @@ class Experiment:
                         observation_space=policy_observation_space,
                         action_space=policy_action_space,
                     ),
+                    "footsies_bot": rllib_policy.PolicySpec(
+                        policy_class=footsies_bot.FootsiesBot,
+                        observation_space=policy_observation_space,
+                        action_space=policy_action_space,
+                    ),
                 },
                 policy_mapping_fn=matchmaking.Matchmaker(
                     [matchmaking.Matchup("focal_policy", "focal_policy", 1.0)]
@@ -204,9 +212,9 @@ class Experiment:
                                 matchmaking.Matchup(
                                     "focal_policy",
                                     eval_policy,
-                                    1 / (len(eval_policies) + 1),
+                                    1 / (len(eval_policies) + 2),
                                 )
-                                for eval_policy in eval_policies + ["random"]
+                                for eval_policy in eval_policies + ["footsies_bot", "random"]
                             ]
                         ).policy_mapping_fn,
                     },

@@ -62,17 +62,25 @@ class FootsiesEnv(env.MultiAgentEnv):
         if config is None:
             config = {}
         self.config = config
+        self.return_fight_state_in_infos = config.get("return_fight_state_in_infos", False)
         self.use_build_encoding = config.get("use_build_encoding", False)
         self.agents: list[typing.AgentID] = ["p1", "p2"]
         self.possible_agents: list[typing.AgentID] = self.agents.copy()
         self._agent_ids: set[typing.AgentID] = set(self.agents)
-        self.guard_break_reward_value = self.config.get("guard_break_reward", 0)
         self.win_reward_scaling_coeff = self.config.get("win_reward_scaling_coeff", 10.0)
+        self.guard_break_reward_value = self.config.get("guard_break_reward", 3.0)
+        self.use_reward_budget = self.config.get("use_reward_budget", True)
+        assert self.guard_break_reward_value * 3 < self.win_reward_scaling_coeff, (
+            "Guard break reward total must be less than the win reward (guard break reward * 3 < win reward)"
+        )
+
+        self.reward_budget = {agent: self.win_reward_scaling_coeff for agent in self.agents}
+
 
         self.evaluation = config.get("evaluation", False)
 
         self.t: int = 0
-        self.max_t: int = config.get("max_t", 1000)
+        self.max_t: int = config.get("max_t", 4000)
         self.frame_skip: int = config.get("frame_skip", 4)
         self.action_delay_frames: int = config.get("action_delay", 8)
 
@@ -110,6 +118,40 @@ class FootsiesEnv(env.MultiAgentEnv):
             "p2": False,
         }
 
+
+    def _get_fight_state_dicts(self):
+        """
+        class FightState:
+            distance_x: float
+            is_opponent_damage: bool 
+            is_opponent_guard_break: bool
+            is_opponent_blocking: bool
+            is_opponent_normal_attack: bool
+            is_opponent_special_attack: bool
+            is_facing_right: bool
+        """
+        fight_state_dict = {
+            "p1": {},
+            "p2": {},
+        }
+        p1_state, p2_state = self.last_game_state.player1, self.last_game_state.player2
+
+        dist_x = np.abs(p1_state.player_position_x - p2_state.player_position_x)
+
+        for player, opp_state in zip(["p1", "p2"], [p2_state, p1_state]):
+            fight_state_dict[player]["distance_x"] = dist_x
+            fight_state_dict[player]["is_opponent_damage"] = opp_state.current_action_id == constants.ActionID.DAMAGE
+            fight_state_dict[player]["is_opponent_guard_break"] = opp_state.current_action_id == constants.ActionID.GUARD_BREAK
+            fight_state_dict[player]["is_opponent_blocking"] = opp_state.current_action_id in [constants.ActionID.GUARD_CROUCH, constants.ActionID.GUARD_STAND, constants.ActionID.GUARD_M]
+            fight_state_dict[player]["is_opponent_normal_attack"] = opp_state.current_action_id in [constants.ActionID.N_ATTACK, constants.ActionID.B_ATTACK]
+            fight_state_dict[player]["is_opponent_special_attack"] = opp_state.current_action_id in [constants.ActionID.N_SPECIAL, constants.ActionID.B_SPECIAL]
+    
+
+        for player, state in zip(["p1", "p2"], [p1_state, p2_state]):
+            fight_state_dict[player]["is_facing_right"] = state.is_face_right
+
+
+        return fight_state_dict
 
     def _launch_binaries(self, port: int):
         # Check if we're on a supported platform
@@ -255,14 +297,16 @@ class FootsiesEnv(env.MultiAgentEnv):
 
         self._reset_action_delay_queues()
 
+        # Reset reward budget
+        self.reward_budget = {agent: self.win_reward_scaling_coeff for agent in self.agents}
+
         self.encoder.reset()
 
-        if not self.use_build_encoding:
-            self.last_game_state = self.game.get_state()
+        self.last_game_state = self.game.get_state()
 
         observations = self.get_obs(self.last_game_state, self.prev_actions, self._holding_special_charge)
 
-        return observations, {agent: {} for agent in self.agents}
+        return observations, self.get_infos()
 
     def step(self, actions: dict[typing.AgentID, typing.ActionType]) -> tuple[
         dict[typing.AgentID, typing.ObsType],
@@ -317,27 +361,50 @@ class FootsiesEnv(env.MultiAgentEnv):
 
         terminated = game_state.player1.is_dead or game_state.player2.is_dead
 
-        # Zero-sum game: 1 if other player is dead, -1 if you're dead:
-        rewards = {
-            "p1": int(game_state.player2.is_dead)
-            - int(game_state.player1.is_dead),
-            "p2": int(game_state.player1.is_dead)
-            - int(game_state.player2.is_dead),
-        }
-        rewards = {k: v * self.win_reward_scaling_coeff for k, v in rewards.items()}
 
+        rewards = {a_id: 0.0 for a_id in self.agents} 
+        # Apply guard-break reward, if using. 
         if self.guard_break_reward_value != 0:
             p1_prev_guard_health = self.last_game_state.player1.guard_health
             p2_prev_guard_health = self.last_game_state.player2.guard_health
             p1_guard_health = game_state.player1.guard_health
             p2_guard_health = game_state.player2.guard_health
 
+            # Guard break reward is deducted from the overall "budget" of reward
+            # to avoid biasing gameplay towards guard break. The total reward
+            # always remains the same, but we can make the signal more dense by 
+            # providing guard break rewards. This can be turned off with 
+            # "use_reward_budget=False" in the environment config.
             if p2_guard_health < p2_prev_guard_health:
+                if self.use_reward_budget:
+                    self.reward_budget["p1"] -= self.guard_break_reward_value
                 rewards["p1"] += self.guard_break_reward_value
                 rewards["p2"] -= self.guard_break_reward_value
             if p1_guard_health < p1_prev_guard_health:
+                if self.use_reward_budget:
+                    self.reward_budget["p2"] -= self.guard_break_reward_value
                 rewards["p2"] += self.guard_break_reward_value
                 rewards["p1"] -= self.guard_break_reward_value
+
+        # If the other player is dead, reward the player who is alive.
+        # We apply rewards as remaining_reward_budget * is_dead + guard_break. 
+        # NOTE(chase): Both players can die at the same time in which case
+        # the episode will still be zero-sum, but the remaining budget rewards 
+        # may differ. 
+        opponent_is_dead = {
+            "p1": int(game_state.player2.is_dead),
+            "p2": int(game_state.player1.is_dead)
+        }
+
+        for a_id, opp_dead in opponent_is_dead.items():
+            other_agent_id = "p2" if a_id == "p1" else "p1"
+            
+            # Reward the agent for the opponent dying
+            rewards[a_id] += self.reward_budget[a_id] * opp_dead
+
+            # Penalize the opponent for dying
+            rewards[other_agent_id] -= self.reward_budget[a_id] * opp_dead
+
 
         terminateds = {
             "p1": terminated,
@@ -375,7 +442,10 @@ class FootsiesEnv(env.MultiAgentEnv):
         return observations, rewards, terminateds, truncateds, self.get_infos()
 
     def get_infos(self):
-        return {agent: {} for agent in self.agents}
+        infos = {agent: {} for agent in self.agents}
+        if self.return_fight_state_in_infos:
+            infos.update(self._get_fight_state_dicts())
+        return infos
 
     def _build_charged_special_queue(self):
         assert self.SPECIAL_CHARGE_FRAMES % self.frame_skip == 0
