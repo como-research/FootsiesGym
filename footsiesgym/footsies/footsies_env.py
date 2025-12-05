@@ -34,6 +34,8 @@ class FootsiesEnv(env.MultiAgentEnv):
         }
     )
 
+    
+
     def __init__(self, config: dict[Any, Any] = None):
         super(FootsiesEnv, self).__init__()
 
@@ -52,16 +54,6 @@ class FootsiesEnv(env.MultiAgentEnv):
             "Guard break reward total must be less than the win reward (guard break reward * 3 < win reward)"
         )
 
-
-        available_actions = [
-            constants.EnvActions.NONE,
-            constants.EnvActions.BACK,
-            constants.EnvActions.FORWARD,
-            constants.EnvActions.ATTACK,
-            constants.EnvActions.BACK_ATTACK,
-            constants.EnvActions.FORWARD_ATTACK,
-        ]
-
         # Add special charge action, if desired. The special actions
         # require that the ATTACK button be held for 60 frames. Depending
         # on enviroment parameters, this may be exceedingly long
@@ -71,17 +63,7 @@ class FootsiesEnv(env.MultiAgentEnv):
         #  Agent selects:  [SPECIAL_CHARGE, NONE, SPECIAL_CHARGE]
         #  Executed Action: [ATTACK, ATTACK, NONE]
         # The second special charge deactivates the held ATTACK.
-        if config.get("use_special_charge_action", False):
-            available_actions.append(constants.EnvActions.SPECIAL_CHARGE)
-
-        self.action_space = spaces.Dict(
-            {
-                agent: spaces.Discrete(
-                    len(available_actions)
-                )
-                for agent in ["p1", "p2"]
-            }
-        )
+        self.action_space = self.get_action_space(use_special_charge_action=config.get("use_special_charge_action", False))
 
         self.reward_budget = {agent: self.win_reward_scaling_coeff for agent in self.agents}
 
@@ -126,6 +108,38 @@ class FootsiesEnv(env.MultiAgentEnv):
             "p1": False,
             "p2": False,
         }
+
+    @classmethod
+    def get_action_space(cls, use_special_charge_action: bool = False):
+        available_actions = [
+            constants.EnvActions.NONE,
+            constants.EnvActions.BACK,
+            constants.EnvActions.FORWARD,
+            constants.EnvActions.ATTACK,
+            constants.EnvActions.BACK_ATTACK,
+            constants.EnvActions.FORWARD_ATTACK,
+        ]
+
+        # Add special charge action, if desired. The special actions
+        # require that the ATTACK button be held for 60 frames. Depending
+        # on enviroment parameters, this may be exceedingly long
+        # for the agent to learn to hold a single button. The SPECIAL_CHARGE
+        # action toggles whether or not the agent wishes to hold ATTACK. 
+        # For example:
+        #  Agent selects:  [SPECIAL_CHARGE, NONE, SPECIAL_CHARGE]
+        #  Executed Action: [ATTACK, ATTACK, NONE]
+        # The second special charge deactivates the held ATTACK.
+        if use_special_charge_action:
+            available_actions.append(constants.EnvActions.SPECIAL_CHARGE)
+
+        return spaces.Dict(
+            {
+                agent: spaces.Discrete(
+                    len(available_actions)
+                )
+                for agent in ["p1", "p2"]
+            }
+        )
 
 
     def _get_fight_state_dicts(self):

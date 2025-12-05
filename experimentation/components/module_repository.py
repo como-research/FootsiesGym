@@ -48,12 +48,12 @@ class ModuleRepository:
     static_modules = {
         "random": random_policy.RandomPolicy(
             observation_space=footsies_env.FootsiesEnv.observation_space["p1"],
-            action_space=footsies_env.FootsiesEnv.action_space["p1"],
+            action_space=footsies_env.FootsiesEnv.get_action_space(use_special_charge_action=False)["p1"],
             config={},
         ),
         "noop": noop.NoOpPolicy(
             observation_space=footsies_env.FootsiesEnv.observation_space["p1"],
-            action_space=footsies_env.FootsiesEnv.action_space["p1"],
+            action_space=footsies_env.FootsiesEnv.get_action_space(use_special_charge_action=False)["p1"],
             config={},
         ),
         # "random_rlmodule": rl_module.SingleAgentRLModuleSpec(
