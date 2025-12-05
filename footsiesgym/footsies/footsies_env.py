@@ -371,6 +371,7 @@ class FootsiesEnv(env.MultiAgentEnv):
             # Toggle the special charge based on whether or not we're holding special already
             if action_is_special_charge and not holding_special_charge:
                 self._holding_special_charge[agent_id] = True
+                actions_to_execute[agent_id] = self.prev_executed_actions[agent_id]
             elif action_is_special_charge and holding_special_charge:
                 self._holding_special_charge[agent_id] = False
                 actions_to_execute[agent_id] = self.prev_executed_actions[agent_id]
@@ -474,6 +475,20 @@ class FootsiesEnv(env.MultiAgentEnv):
         # ~~~ END: For debugging game build! ~~~
         self._validate_action_queues()
 
+        # ~~~ END: For debugging action queue! ~~~
+
+        # if not self.evaluation:
+        #     print("===== Step:", self.t, "=====")
+        #     print("Selected Action: ", actions["p1"])
+        #     print("Executed Action: ", actions_to_execute["p1"])
+        #     print("Holding Special Charge: ", self._holding_special_charge["p1"])
+        #     print("Action Queue: ", self._action_queues["p1"])
+
+        #     if self.t % 30 == 0:
+        #         import sys
+        #         sys.exit(1)
+        # ~~~ END: For debugging action queue! ~~~
+
         return observations, rewards, terminateds, truncateds, self.get_infos()
 
     def get_infos(self):
@@ -494,6 +509,10 @@ class FootsiesEnv(env.MultiAgentEnv):
         if action == constants.EnvActions.BACK:
             return constants.EnvActions.BACK_ATTACK
         elif action == constants.EnvActions.FORWARD:
+            return constants.EnvActions.FORWARD_ATTACK
+        elif action == constants.EnvActions.BACK_ATTACK:
+            return constants.EnvActions.BACK_ATTACK
+        elif action == constants.EnvActions.FORWARD_ATTACK:
             return constants.EnvActions.FORWARD_ATTACK
         else:
             return constants.EnvActions.ATTACK
