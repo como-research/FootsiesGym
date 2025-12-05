@@ -108,7 +108,7 @@ class Experiment:
         policy_observation_space = footsies_env.FootsiesEnv.observation_space[
             "p1"
         ]
-        policy_action_space = footsies_env.FootsiesEnv.action_space["p1"]
+        policy_action_space = footsies_env.FootsiesEnv.get_action_space(use_special_charge_action=True)["p1"]
 
         # Add policy names stored in the ModuleRepository here to evaluate against them
         eval_policies = []
@@ -122,11 +122,12 @@ class Experiment:
                     "frame_skip": 4,
                     "action_delay": 8,
                     "num_envs_per_worker": self.NUM_ENVS_PER_ENV_RUNNER,
-                    "guard_break_reward": 3.0,
+                    "guard_break_reward": 0.0,
                     "win_reward_scaling_coeff": 10.0,
-                    "use_reward_budget": True,
+                    "use_reward_budget": False,
                     "launch_binaries": True,
                     "return_fight_state_in_infos": True,
+                    "use_special_charge_action": True,
                 },
             )
             .api_stack(

@@ -6,7 +6,7 @@ import numpy as np
 
 from footsiesgym.footsies.game import constants
 from footsiesgym.footsies.game.proto import footsies_service_pb2 as footsies_pb2
-from footsiesgym.footsies.typing import AgentID
+from footsiesgym.footsies.typing import ActionType, AgentID
 
 import dataclasses
 
@@ -38,7 +38,7 @@ class EncoderMethods:
 class FootsiesEncoder:
     """Encoder class to generate observations from the game state"""
 
-    observation_size: int = 85
+    observation_size: int = 86
     privileged_feature_names: list[str] = ["special_attack_progress", "would_next_forward_input_dash", "would_next_backward_input_dash", "previous_action", "is_holding_special_charge"]
 
     def __init__(self):
@@ -50,8 +50,9 @@ class FootsiesEncoder:
     def encode(
         self,
         game_state: footsies_pb2.GameState,
-        prev_actions: dict[AgentID, int],
+        prev_actions: dict[AgentID, ActionType],
         is_charging_special: dict[AgentID, bool],
+        num_actions: int,
         **kwargs,
     ) -> dict[str, Any]:
         """Encodes the game state into observations for all agents.
@@ -71,10 +72,10 @@ class FootsiesEncoder:
         """
         common_state = self.encode_common_state(game_state)
         p1_encoding = self.encode_player_state(
-            game_state.player1, prev_actions["p1"], is_charging_special["p1"], **kwargs.get("p1", {})
+            game_state.player1, prev_actions["p1"], is_charging_special["p1"], num_actions, **kwargs.get("p1", {})
         )
         p2_encoding = self.encode_player_state(
-            game_state.player2, prev_actions["p2"], is_charging_special["p2"], **kwargs.get("p2", {})
+            game_state.player2, prev_actions["p2"], is_charging_special["p2"], num_actions, **kwargs.get("p2", {})
         )
 
         self._last_common_state = common_state
@@ -137,8 +138,9 @@ class FootsiesEncoder:
     def encode_player_state(
         self,
         player_state: footsies_pb2.PlayerState,
-        prev_action: int,
+        prev_action: ActionType,
         holding_special_charge: bool,
+        num_actions: int,
         **kwargs,
     ) -> dict[str, int | float | list]:
         """Encodes the player state into observations.
@@ -191,7 +193,7 @@ class FootsiesEncoder:
             "special_attack_progress": min(
                 player_state.special_attack_progress, 1.0
             ),
-            "previous_action": EncoderMethods.one_hot(prev_action, [i for i in range(len(constants.ACTION_TO_BITS))]),
+            "previous_action": EncoderMethods.one_hot(prev_action, [i for i in range(num_actions)]),
             "is_holding_special_charge": int(holding_special_charge),
         }
 
@@ -202,6 +204,9 @@ class FootsiesEncoder:
 
     def _encode_action_id(self, action_id: int) -> np.ndarray:
         """Encodes the action id into a one-hot vector.
+        Note that the action ID is _not_ the action the agent selects,
+        but rather an integer that corresponds to the action (script) being 
+        executed in the game.
 
         :param action_id: The action id to encode
         :type action_id: int

@@ -4,15 +4,15 @@ import numpy as np
 from gymnasium import spaces
 from ray.rllib import env
 import collections
-from ray.rllib.env import env_context
 
-from . import encoder, typing
+from . import encoder
 import os
 import platform
 import subprocess
-import zipfile
 import portpicker
 
+from footsiesgym.footsies.typing import ActionType, AgentID, ObsType
+from footsiesgym.footsies.game.proto import footsies_service_pb2 as footsies_pb2
 from .game import constants, footsies_game
 from ..binary_manager import get_binary_manager
 
@@ -44,9 +44,9 @@ class FootsiesEnv(env.MultiAgentEnv):
         self.config = config
         self.return_fight_state_in_infos = config.get("return_fight_state_in_infos", False)
         self.use_build_encoding = config.get("use_build_encoding", False)
-        self.agents: list[typing.AgentID] = ["p1", "p2"]
-        self.possible_agents: list[typing.AgentID] = self.agents.copy()
-        self._agent_ids: set[typing.AgentID] = set(self.agents)
+        self.agents: list[AgentID] = ["p1", "p2"]
+        self.possible_agents: list[AgentID] = self.agents.copy()
+        self._agent_ids: set[AgentID] = set(self.agents)
         self.win_reward_scaling_coeff = self.config.get("win_reward_scaling_coeff", 1.0)
         self.guard_break_reward_value = self.config.get("guard_break_reward", 0.0)
         self.use_reward_budget = self.config.get("use_reward_budget", False)
@@ -63,7 +63,8 @@ class FootsiesEnv(env.MultiAgentEnv):
         #  Agent selects:  [SPECIAL_CHARGE, NONE, SPECIAL_CHARGE]
         #  Executed Action: [ATTACK, ATTACK, NONE]
         # The second special charge deactivates the held ATTACK.
-        self.action_space = self.get_action_space(use_special_charge_action=config.get("use_special_charge_action", False))
+        self.action_space: dict[AgentID, spaces.Discrete] = self.get_action_space(use_special_charge_action=config.get("use_special_charge_action", False))
+        self.num_actions: int = self.action_space["p1"].n
 
         self.reward_budget = {agent: self.win_reward_scaling_coeff for agent in self.agents}
 
@@ -81,8 +82,13 @@ class FootsiesEnv(env.MultiAgentEnv):
 
         self.action_delay_steps: int = self.action_delay_frames // self.frame_skip
         self.encoder = encoder.FootsiesEncoder()
-        self._action_queues: dict[typing.AgentID, collections.deque[int]] = None
-        self.prev_actions: dict[typing.AgentID, int] = {agent: constants.EnvActions.NONE for agent in self.agents}
+        self._action_queues: dict[AgentID, collections.deque[int]] = None
+
+        # We track two different previous actions: the last action that was sent to the game server
+        # and the last action that the policy selected. Due to action delay this represents a_{t-K}
+        # and a_{t-1} respectively, where K is the action delay. 
+        self.prev_selected_actions: dict[AgentID, int] = {agent: constants.EnvActions.NONE for agent in self.agents}
+        self.prev_executed_actions: dict[AgentID, int] = {agent: constants.EnvActions.NONE for agent in self.agents}
         self._reset_action_delay_queues()
 
 
@@ -269,7 +275,7 @@ class FootsiesEnv(env.MultiAgentEnv):
         self.close()
 
     def _reset_action_delay_queues(self):
-        self._action_queues: dict[typing.AgentID, collections.deque[int]] = {
+        self._action_queues: dict[AgentID, collections.deque[int]] = {
             agent_id: collections.deque([constants.EnvActions.NONE] * self.action_delay_steps, maxlen=self.action_delay_steps)
             for agent_id in self.agents
         }
@@ -281,7 +287,7 @@ class FootsiesEnv(env.MultiAgentEnv):
                 " Observed {len(self._action_queues[agent_id])}, expected {self.action_delay_steps}"
             )
 
-    def get_obs(self, game_state, prev_actions, is_charging_special: dict[typing.AgentID, bool]):
+    def get_obs(self, game_state: footsies_pb2.GameState, prev_actions: dict[AgentID, ActionType], is_charging_special: dict[AgentID, bool], num_actions: int):
         if self.use_build_encoding:
             raise NotImplementedError(
                 "Build encoder has not yet integrated action delay! "
@@ -298,7 +304,7 @@ class FootsiesEnv(env.MultiAgentEnv):
             # }
             # return encoded_state_dict
         else:
-            return self.encoder.encode(game_state, prev_actions, is_charging_special)
+            return self.encoder.encode(game_state, prev_actions, is_charging_special, num_actions)
 
     def reset(
         self,
@@ -306,13 +312,13 @@ class FootsiesEnv(env.MultiAgentEnv):
         seed: int | None = None,
         options: dict | None = None,
     ) -> tuple[
-        dict[typing.AgentID, typing.ObsType], dict[typing.AgentID, Any]
+        dict[AgentID, ObsType], dict[AgentID, Any]
     ]:
         """Resets the environment to the starting state
         and returns the initial observations for all agents.
 
         :return: Tuple of observations and infos for each agent.
-        :rtype: tuple[dict[typing.AgentID, typing.ObsType], dict[typing.AgentID, Any]]
+        :rtype: tuple[dict[AgentID, ObsType], dict[AgentID, Any]]
         """
         self.t = 0
         self.game.reset_game()
@@ -327,28 +333,28 @@ class FootsiesEnv(env.MultiAgentEnv):
 
         self.last_game_state = self.game.get_state()
 
-        observations = self.get_obs(self.last_game_state, self.prev_actions, self._holding_special_charge)
+        observations = self.get_obs(self.last_game_state, self.prev_selected_actions, self._holding_special_charge, self.num_actions)
 
         return observations, self.get_infos()
 
-    def step(self, actions: dict[typing.AgentID, typing.ActionType]) -> tuple[
-        dict[typing.AgentID, typing.ObsType],
-        dict[typing.AgentID, float],
-        dict[typing.AgentID, bool],
-        dict[typing.AgentID, bool],
-        dict[typing.AgentID, dict[str, Any]],
+    def step(self, actions: dict[AgentID, ActionType]) -> tuple[
+        dict[AgentID, ObsType],
+        dict[AgentID, float],
+        dict[AgentID, bool],
+        dict[AgentID, bool],
+        dict[AgentID, dict[str, Any]],
     ]:
         """Step the environment with the provided actions for all agents.
 
         :param actions: Dictionary mapping agent ids to their actions for this step.
-        :type actions: dict[typing.AgentID, typing.ActionType]
+        :type actions: dict[AgentID, ActionType]
         :return: Tuple of observations, rewards, terminates, truncateds and infos for all agents.
-        :rtype: tuple[ dict[typing.AgentID, typing.ObsType], dict[typing.AgentID, float], dict[typing.AgentID, bool], dict[typing.AgentID, bool], dict[typing.AgentID, dict[str, Any]], ]
+        :rtype: tuple[ dict[AgentID, ObsType], dict[AgentID, float], dict[AgentID, bool], dict[AgentID, bool], dict[AgentID, dict[str, Any]], ]
         """
         self.t += 1
 
         # Update action queue -> dequeue old actions, enqueue new actions
-        actions_to_execute: dict[typing.AgentID, typing.ActionType] = {}
+        actions_to_execute: dict[AgentID, ActionType] = {}
         if self.action_delay_frames == 0:
             actions_to_execute = actions
         else:
@@ -365,9 +371,10 @@ class FootsiesEnv(env.MultiAgentEnv):
             # Toggle the special charge based on whether or not we're holding special already
             if action_is_special_charge and not holding_special_charge:
                 self._holding_special_charge[agent_id] = True
+                actions_to_execute[agent_id] = self.prev_executed_actions[agent_id]
             elif action_is_special_charge and holding_special_charge:
                 self._holding_special_charge[agent_id] = False
-                actions_to_execute[agent_id] = self.prev_actions[agent_id]
+                actions_to_execute[agent_id] = self.prev_executed_actions[agent_id]
 
             if self._holding_special_charge[agent_id]:
                 actions_to_execute[agent_id] = self._convert_to_charge_action(
@@ -380,13 +387,18 @@ class FootsiesEnv(env.MultiAgentEnv):
         game_state = self.game.step_n_frames(
             p1_action=p1_action, p2_action=p2_action, n_frames=self.frame_skip
         )
-        observations = self.get_obs(game_state, actions_to_execute, self._holding_special_charge)
+        observations = self.get_obs(
+            game_state=game_state, 
+            prev_actions=actions, 
+            is_charging_special=self._holding_special_charge, 
+            num_actions=self.num_actions
+        )
 
         terminated = game_state.player1.is_dead or game_state.player2.is_dead
 
 
         rewards = {a_id: 0.0 for a_id in self.agents} 
-        # Apply guard-break reward, if using. 
+        # Apply guard break reward, if using. 
         if self.guard_break_reward_value != 0:
             p1_prev_guard_health = self.last_game_state.player1.guard_health
             p2_prev_guard_health = self.last_game_state.player2.guard_health
@@ -443,9 +455,10 @@ class FootsiesEnv(env.MultiAgentEnv):
         }
 
         self.last_game_state = game_state
-        self.prev_actions = actions_to_execute
+        self.prev_executed_actions = actions_to_execute
+        self.prev_selected_actions = actions
 
-        # ~~~ For debugging game build! ~~~
+        # ~~~ START: For debugging game build! ~~~
         # encoded_state = self.game.get_encoded_state()
         # encoded_state_dict = {
         #     "p1": np.asarray(
@@ -459,8 +472,22 @@ class FootsiesEnv(env.MultiAgentEnv):
         # for a_id, ob in observations.items():
         #     matched_obs = np.isclose(ob, encoded_state_dict[a_id]).all()
         #     assert matched_obs
-        # ~~~ END ~~~
+        # ~~~ END: For debugging game build! ~~~
         self._validate_action_queues()
+
+        # ~~~ END: For debugging action queue! ~~~
+
+        # if not self.evaluation:
+        #     print("===== Step:", self.t, "=====")
+        #     print("Selected Action: ", actions["p1"])
+        #     print("Executed Action: ", actions_to_execute["p1"])
+        #     print("Holding Special Charge: ", self._holding_special_charge["p1"])
+        #     print("Action Queue: ", self._action_queues["p1"])
+
+        #     if self.t % 30 == 0:
+        #         import sys
+        #         sys.exit(1)
+        # ~~~ END: For debugging action queue! ~~~
 
         return observations, rewards, terminateds, truncateds, self.get_infos()
 
@@ -482,6 +509,10 @@ class FootsiesEnv(env.MultiAgentEnv):
         if action == constants.EnvActions.BACK:
             return constants.EnvActions.BACK_ATTACK
         elif action == constants.EnvActions.FORWARD:
+            return constants.EnvActions.FORWARD_ATTACK
+        elif action == constants.EnvActions.BACK_ATTACK:
+            return constants.EnvActions.BACK_ATTACK
+        elif action == constants.EnvActions.FORWARD_ATTACK:
             return constants.EnvActions.FORWARD_ATTACK
         else:
             return constants.EnvActions.ATTACK
