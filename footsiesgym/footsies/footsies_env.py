@@ -64,7 +64,17 @@ class FootsiesEnv(env.MultiAgentEnv):
         #  Executed Action: [ATTACK, ATTACK, NONE]
         # The second special charge deactivates the held ATTACK.
         self.action_space: dict[AgentID, spaces.Discrete] = self.get_action_space(use_special_charge_action=config.get("use_special_charge_action", False))
-        self.num_actions: int = self.action_space["p1"].n
+        self.num_actions: int = len(
+            [
+                constants.EnvActions.NONE,
+                constants.EnvActions.BACK,
+                constants.EnvActions.FORWARD,
+                constants.EnvActions.ATTACK,
+                constants.EnvActions.BACK_ATTACK,
+                constants.EnvActions.FORWARD_ATTACK,
+                constants.EnvActions.SPECIAL_CHARGE,
+            ]
+        )
 
         self.reward_budget = {agent: self.win_reward_scaling_coeff for agent in self.agents}
 
