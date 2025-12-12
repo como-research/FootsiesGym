@@ -516,7 +516,8 @@ class FootsiesEnv(env.MultiAgentEnv):
         # =====================================================================
         actions_to_execute: dict[AgentID, ActionType] = {}
         if self.action_delay_frames == 0:
-            actions_to_execute = actions
+            # Must copy to avoid mutating the input dict when processing SPECIAL_CHARGE
+            actions_to_execute = actions.copy()
         else:
             for agent_id in self.agents:
                 # Dequeue: Get action selected K steps ago (this will execute now)
