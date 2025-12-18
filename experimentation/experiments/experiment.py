@@ -18,11 +18,12 @@ from ray.tune.result import (
 )
 from ray.tune.search.hyperopt import HyperOptSearch
 
-from experimentation.callbacks import add_policies, script_metrics, winrates
+from experimentation.callbacks import add_policies, script_metrics, winrates, attach_connector
 from footsiesgym.footsies import footsies_env
 from experimentation.models.modelv2 import back, lstm_model, noop, footsies_bot
 from experimentation.utils import matchmaking
-from experimentation.components import emagnet
+from experimentation.components import emagnet, action_mask_action_connector
+from experimentation.callbacks.attach_connector import AttachConnectors
 
 
 def eval_policy_mapping_fn(*args, **kwargs): ...
@@ -58,7 +59,7 @@ class Experiment:
                 )
             },
             callbacks=(
-                [WandbLoggerCallback(project="Footsies-v0")]
+                [WandbLoggerCallback(project="Footsies-v0"),]
                 if not self.config.get("debug", False)
                 else None
             ),
@@ -229,6 +230,7 @@ class Experiment:
                             add_policies.AddPolicies, policies=eval_policies
                         ),
                         script_metrics.ScriptMetrics,
+                        functools.partial(AttachConnectors, action_connectors=[action_mask_action_connector.ActionMaskConnector])
                     ]
                 )
             )
