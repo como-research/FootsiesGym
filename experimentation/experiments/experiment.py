@@ -106,7 +106,7 @@ class Experiment:
 
     def construct_model_config(self, as_dict=True):
 
-        policy_observation_space = footsies_env.FootsiesEnv.observation_space[
+        policy_observation_space = footsies_env.FootsiesEnv.get_observation_space(use_special_charge_action=True)[
             "p1"
         ]
         policy_action_space = footsies_env.FootsiesEnv.get_action_space(use_special_charge_action=True)["p1"]
@@ -230,7 +230,6 @@ class Experiment:
                             add_policies.AddPolicies, policies=eval_policies
                         ),
                         script_metrics.ScriptMetrics,
-                        functools.partial(AttachConnectors, action_connectors=[action_mask_action_connector.ActionMaskConnector])
                     ]
                 )
             )

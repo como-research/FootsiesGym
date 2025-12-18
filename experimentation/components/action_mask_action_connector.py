@@ -39,15 +39,10 @@ class ActionMaskConnector(rllib_connector.ActionConnector):
         # Apply action mask to logits
         action_mask = infos["action_mask"]
         masked_logits = logits.copy()
-        masked_logits[action_mask == 0] = -np.inf  # Set invalid actions to negative infinity
+        masked_logits[action_mask == 0] = -3.4e38  # Set invalid actions to negative infinity
         
         # Update logits with masked values
         fetches["action_dist_inputs"] = masked_logits
-
-        print(f"Action mask: {action_mask}")
-        print(f"Original logits: {logits}")
-        print(f"Masked logits: {masked_logits}")
-
 
         action = self.action_from_logits(
             logits=masked_logits

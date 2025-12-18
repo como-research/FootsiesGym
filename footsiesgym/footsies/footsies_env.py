@@ -26,17 +26,6 @@ class FootsiesEnv(env.MultiAgentEnv):
     LINUX_ZIP_PATH_WINDOWED = "binaries/footsies_linux_windowed_021725.zip"
     SPECIAL_CHARGE_FRAMES = 60
 
-    observation_space = spaces.Dict(
-        {
-            agent: spaces.Box(
-                low=-np.inf,
-                high=np.inf,
-                shape=(encoder.FootsiesEncoder.observation_size,),
-            )
-            for agent in ["p1", "p2"]
-        }
-    )
-
 
     SPECIAL_CHARGE_ALLOWED_ACTIONS = np.array([
         constants.EnvActions.ATTACK,
@@ -90,6 +79,11 @@ class FootsiesEnv(env.MultiAgentEnv):
                 )
             )
         )
+
+        self.observation_space = self.get_observation_space(
+            use_special_charge_action=config.get("use_special_charge_action", False)
+        )
+
         self.num_actions: int = len(
             [
                 constants.EnvActions.NONE,
@@ -192,6 +186,15 @@ class FootsiesEnv(env.MultiAgentEnv):
                 for agent in ["p1", "p2"]
             }
         )
+
+    @classmethod
+    def get_observation_space(cls, use_special_charge_action: bool = False):
+        action_space = cls.get_action_space(use_special_charge_action)
+        return spaces.Dict({
+            agent: spaces.Dict({
+                "obs": spaces.Box(low=-np.inf, high=np.inf, shape=(encoder.FootsiesEncoder.observation_size,)),
+                "action_mask": spaces.Box(low=0, high=1, shape=(action_space[agent].n,), dtype=np.float32),
+            }) for agent in ["p1", "p2"]})
 
     def _get_fight_state_dicts(self):
         """
@@ -394,11 +397,19 @@ class FootsiesEnv(env.MultiAgentEnv):
             #         encoded_state.player2_encoding, dtype=np.float32
             #     ),
             # }
+            # TODO(chase): If used, we also need to add action masking here. 
             # return encoded_state_dict
         else:
-            return self.encoder.encode(
+            obs = self.encoder.encode(
                 game_state, prev_actions, is_charging_special, num_actions
             )
+
+            # Add action masks to the observations
+            for agent in self.agents:
+                action_mask = self.get_action_mask(agent)
+                obs[agent]["action_mask"] = action_mask
+
+        return obs
 
     def reset(
         self,

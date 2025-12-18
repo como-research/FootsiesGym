@@ -105,7 +105,7 @@ class FootsiesEncoder:
         )
 
         
-        return {"p1": p1_centric_observation, "p2": p2_centric_observation}
+        return {"p1": {"obs": p1_centric_observation}, "p2": {"obs": p2_centric_observation}}
 
     def encode_common_state(
         self, game_state: footsies_pb2.GameState
