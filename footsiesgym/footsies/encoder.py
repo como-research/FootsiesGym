@@ -38,7 +38,7 @@ class EncoderMethods:
 class FootsiesEncoder:
     """Encoder class to generate observations from the game state"""
 
-    observation_size: int = 86
+    observation_size: int = 88
     privileged_feature_names: list[str] = ["special_attack_progress", "would_next_forward_input_dash", "would_next_backward_input_dash", "previous_action", "is_holding_special_charge"]
 
     def __init__(self):

@@ -10,6 +10,8 @@ class EnvActions:
     BACK_ATTACK = 4
     FORWARD_ATTACK = 5
     SPECIAL_CHARGE = 6
+    FORWARD_SPECIAL_CHARGE = 7
+    BACK_SPECIAL_CHARGE = 8
 
 
 @dataclasses.dataclass

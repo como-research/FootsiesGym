@@ -37,6 +37,16 @@ class FootsiesEnv(env.MultiAgentEnv):
         }
     )
 
+
+    SPECIAL_CHARGE_ALLOWED_ACTIONS = np.array([
+        constants.EnvActions.ATTACK,
+        constants.EnvActions.FORWARD_ATTACK,
+        constants.EnvActions.BACK_ATTACK,
+        constants.EnvActions.SPECIAL_CHARGE,
+        constants.EnvActions.BACK_SPECIAL_CHARGE,
+        constants.EnvActions.FORWARD_SPECIAL_CHARGE,
+    ], dtype=np.int32)
+
     def __init__(self, config: dict[Any, Any] = None):
         super(FootsiesEnv, self).__init__()
 
@@ -45,6 +55,9 @@ class FootsiesEnv(env.MultiAgentEnv):
         self.config = config
         self.return_fight_state_in_infos = config.get(
             "return_fight_state_in_infos", False
+        )
+        self.return_action_mask_in_infos = config.get(
+            "return_action_mask_in_infos", True
         )
         self.use_build_encoding = config.get("use_build_encoding", False)
         self.agents: list[AgentID] = ["p1", "p2"]
@@ -86,6 +99,8 @@ class FootsiesEnv(env.MultiAgentEnv):
                 constants.EnvActions.BACK_ATTACK,
                 constants.EnvActions.FORWARD_ATTACK,
                 constants.EnvActions.SPECIAL_CHARGE,
+                constants.EnvActions.FORWARD_SPECIAL_CHARGE,
+                constants.EnvActions.BACK_SPECIAL_CHARGE,
             ]
         )
 
@@ -165,7 +180,11 @@ class FootsiesEnv(env.MultiAgentEnv):
         #  Executed Action: [ATTACK, ATTACK, NONE]
         # The second special charge deactivates the held ATTACK.
         if use_special_charge_action:
-            available_actions.append(constants.EnvActions.SPECIAL_CHARGE)
+            available_actions.extend([
+                constants.EnvActions.SPECIAL_CHARGE,
+                constants.EnvActions.FORWARD_SPECIAL_CHARGE,
+                constants.EnvActions.BACK_SPECIAL_CHARGE,
+            ])
 
         return spaces.Dict(
             {
@@ -475,15 +494,9 @@ class FootsiesEnv(env.MultiAgentEnv):
         SPECIAL_CHARGE is a toggle that enables/disables automatic ATTACK holding.
 
         When SPECIAL_CHARGE executes (exits the queue):
-          - If not holding: Toggle ON, continue with prev_executed_actions
-          - If holding: Toggle OFF, continue with prev_executed_actions
+          - If not holding: Toggle ON, continue with charged version of executed action
+          - If holding: Toggle OFF, continue with base version of executed action.
 
-        While holding is active, actions are converted to include ATTACK:
-          NONE/other → ATTACK
-          BACK       → BACK_ATTACK
-          FORWARD    → FORWARD_ATTACK
-
-        This allows BACK_SPECIAL (requires BACK held when ATTACK releases after 60 frames).
 
         Example with K=2 delay:
         -----------------------
@@ -492,22 +505,14 @@ class FootsiesEnv(env.MultiAgentEnv):
           0   BACK            [NONE,BACK]     NONE            False    NONE
           1   SPECIAL_CHARGE  [BACK,SP_CHG]   NONE            False    NONE
           2   FORWARD         [SP_CHG,FWD]    BACK            False    BACK
-          3   FORWARD         [FWD,FWD]       SPECIAL_CHARGE  True     BACK*
+          3   FORWARD         [FWD,FWD]       SPECIAL_CHARGE  True     ATTACK
           4   NONE            [FWD,NONE]      FORWARD         True     FWD_ATTACK
           5   NONE            [NONE,NONE]     FORWARD         True     FWD_ATTACK
           ...                                                 True     (continue holding)
          18   SPECIAL_CHARGE  [NONE,SP_CHG]   NONE            True     ATTACK
          19   NONE            [SP_CHG,NONE]   NONE            True     ATTACK
-         20   NONE            [NONE,NONE]     SPECIAL_CHARGE  False    ATTACK*
+         20   NONE            [NONE,NONE]     SPECIAL_CHARGE  False    NONE
 
-        * When SPECIAL_CHARGE dequeues, it uses prev_executed_actions and toggles holding.
-          At step 3: prev_executed=BACK, so BACK executes while toggling ON.
-          At step 20: prev_executed=ATTACK, so ATTACK executes while toggling OFF.
-          The release of ATTACK at step 20 (after 15+ steps of holding) triggers the special.
-
-        The agent knows what will execute with SPECIAL_CHARGE because it sees prev_selected
-        in the observation. At step 1 when selecting SPECIAL_CHARGE, it sees prev_selected=BACK,
-        so it knows BACK will execute when the toggle fires.
         """
         self.t += 1
 
@@ -533,23 +538,25 @@ class FootsiesEnv(env.MultiAgentEnv):
             holding_special_charge = self._holding_special_charge[agent_id]
             action_is_special_charge = (
                 actions_to_execute[agent_id]
-                == constants.EnvActions.SPECIAL_CHARGE
+                in [
+                    constants.EnvActions.SPECIAL_CHARGE,
+                    constants.EnvActions.FORWARD_SPECIAL_CHARGE,
+                    constants.EnvActions.BACK_SPECIAL_CHARGE,
+                ]
             )
 
             # Toggle special charge state when SPECIAL_CHARGE action executes.
-            # Use prev_executed_actions to maintain continuity of physical action.
-            # The agent can predict this because it observes prev_selected_actions,
-            # and both the previous action and SPECIAL_CHARGE are delayed together.
+            # Use the base action while the logic for special charging is handled separately. 
             if action_is_special_charge and not holding_special_charge:
                 self._holding_special_charge[agent_id] = True
-                actions_to_execute[agent_id] = self.prev_executed_actions[
-                    agent_id
-                ]
+                actions_to_execute[agent_id] = self._convert_special_charge_to_base_action(
+                    actions_to_execute[agent_id]
+                )
             elif action_is_special_charge and holding_special_charge:
                 self._holding_special_charge[agent_id] = False
-                actions_to_execute[agent_id] = self.prev_executed_actions[
-                    agent_id
-                ]
+                actions_to_execute[agent_id] = self._convert_special_charge_to_base_action(
+                    actions_to_execute[agent_id]
+                )
 
             # While holding special charge, convert all actions to include ATTACK.
             # This enables charging toward NEUTRAL_SPECIAL or BACK_SPECIAL based
@@ -675,7 +682,36 @@ class FootsiesEnv(env.MultiAgentEnv):
         infos = {agent: {} for agent in self.agents}
         if self.return_fight_state_in_infos:
             infos.update(self._get_fight_state_dicts())
+
+        if self.return_action_mask_in_infos:
+            for agent_id in self.agents:
+                infos[agent_id]["action_mask"] = self.get_action_mask(agent_id)
+        
         return infos
+
+    def get_action_mask(self, agent_id: str) -> np.ndarray:
+        """Get action mask for the given agent.
+        
+        If they are holding special charge, then the only available actions are:
+            - ATTACK
+            - FORWARD_ATTACK
+            - BACKWARD_ATTACK
+            - SPECIAL_CHARGE
+            - BACK_SPECIAL_CHARGE
+            - FORWARD_SPECIAL_CHARGE
+        Otherwise, the full action space is available. 
+        """
+        # Check if the agent is holding special charge and only allow
+        # the specified actions if so. 
+        if self._holding_special_charge[agent_id]:
+            mask = np.zeros(self.action_space[agent_id].n, dtype=np.float32)
+            mask[self.SPECIAL_CHARGE_ALLOWED_ACTIONS] = 1.0
+                
+            return mask
+        
+        # If not holding special charge, return all actions as available
+        action_space = self.action_space[agent_id]
+        return np.ones(action_space.n, dtype=np.float32)
 
     def _build_charged_special_queue(self):
         assert self.SPECIAL_CHARGE_FRAMES % self.frame_skip == 0
@@ -696,6 +732,17 @@ class FootsiesEnv(env.MultiAgentEnv):
             return constants.EnvActions.FORWARD_ATTACK
         else:
             return constants.EnvActions.ATTACK
+
+    @staticmethod
+    def _convert_special_charge_to_base_action(action: int) -> int:
+        if action == constants.EnvActions.SPECIAL_CHARGE:
+            return constants.EnvActions.NONE
+        elif action == constants.EnvActions.FORWARD_SPECIAL_CHARGE:
+            return constants.EnvActions.FORWARD
+        elif action == constants.EnvActions.BACK_SPECIAL_CHARGE:
+            return constants.EnvActions.BACK
+
+        raise ValueError(f"Invalid special charge action: {action}, expected one of SPECIAL_CHARGE, FORWARD_SPECIAL_CHARGE, BACK_SPECIAL_CHARGE.")
 
     def _build_charged_queue_features(self):
         return {
