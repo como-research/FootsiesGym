@@ -44,10 +44,6 @@ def make(
     default_config = {
         "platform": platform,
         "launch_binaries": launch_binaries,
-        "max_t": 1000,
-        "frame_skip": 4,
-        "action_delay": 8,
-        "guard_break_reward": 0.0,
     }
 
     if config is not None:

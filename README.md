@@ -1,5 +1,9 @@
 # FootsiesGym
 
+<p align="center">
+  <img src="assets/footsies_trim.gif" alt="Footsies gameplay" />
+</p>
+
 A reinforcement learning environment for HiFight's [Footsies](https://hifight.github.io/footsies/) game. This environment serves as a benchmark for multi-agent reinforcement learning in a two-player zero-sum fighting game.
 
 The environment wraps the open-source Unity implementation, augmented with a gRPC server controlled through a Python harness. Training is implemented using Ray's [RLlib](https://docs.ray.io/en/latest/rllib/index.html).
@@ -84,9 +88,9 @@ env = FootsiesEnv(config={...})
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `max_t` | int | `1000`* | Maximum timesteps per episode |
-| `frame_skip` | int | `4`* | Number of game frames per environment step |
-| `action_delay` | int | `8`* | Action delay in frames (must be divisible by `frame_skip`) |
+| `max_t` | int | `4000` | Maximum timesteps per episode |
+| `frame_skip` | int | `4` | Number of game frames per environment step |
+| `action_delay` | int | `8` | Action delay in frames (must be divisible by `frame_skip`) |
 | `port` | int | auto | gRPC port for game server communication |
 | `host` | str | `"localhost"` | Game server host address |
 | `headless` | bool | `True` | Headless mode (True) or windowed (False) |
@@ -96,10 +100,8 @@ env = FootsiesEnv(config={...})
 | `use_special_charge_action` | bool | `False` | Enable the `SPECIAL_CHARGE` toggle action |
 | `return_fight_state_in_infos` | bool | `False` | Include detailed fight state in `infos` dict |
 | `win_reward_scaling_coeff` | float | `1.0` | Scales the win/loss reward magnitude |
-| `guard_break_reward` | float | `0.0`* | Reward given per guard break event |
+| `guard_break_reward` | float | `0.0` | Reward given per guard break event |
 | `use_reward_budget` | bool | `False` | Deduct guard break rewards from the win reward budget |
-
-*Defaults when using `footsiesgym.make()`. When constructing `FootsiesEnv` directly, `max_t` defaults to `4000` and `guard_break_reward` defaults to `0.0`.
 
 ## Action Space
 
