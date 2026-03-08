@@ -3,6 +3,7 @@ Binary manager for FootsiesGym - handles automatic binary downloads.
 """
 
 import fcntl
+import hashlib
 import os
 import shutil
 import urllib.error
@@ -15,14 +16,12 @@ from typing import Optional
 class BinaryManager:
     """Manages automatic downloading and caching of FootsiesGym binaries."""
 
-    # Direct download URLs for binary files
-    # Using GitHub raw files as the primary source
-    DOWNLOAD_BASE_URL = (
-        "https://github.com/chasemcd/FootsiesGym/raw/main/binaries"
-    )
+    # Primary download URL (Cloudflare R2 bucket)
+    DOWNLOAD_BASE_URL = "https://footsiesgym.chasemcd.com/v0.6.0"
 
     # Fallback URLs in case primary fails
     FALLBACK_URLS = [
+        "https://github.com/chasemcd/FootsiesGym/raw/main/binaries",
         "https://raw.githubusercontent.com/chasemcd/FootsiesGym/main/binaries",
     ]
 
@@ -31,6 +30,14 @@ class BinaryManager:
         "footsies_linux_windowed_021725.zip": "footsies_linux_windowed_021725.zip",
         "footsies_mac_headless_5709b6d.zip": "footsies_mac_headless_5709b6d.zip",
         "footsies_mac_windowed_5709b6d.zip": "footsies_mac_windowed_5709b6d.zip",
+    }
+
+    # SHA256 hashes for integrity verification
+    BINARY_HASHES = {
+        "footsies_linux_server_021725.zip": "d5fd18bd1d9d97236fc03143d8711f8fe64aaadfc5eba5621b6a8cce098fb02e",
+        "footsies_linux_windowed_021725.zip": "7206527913ad5f5eeebac31faf5aa46ebd6956e58eb652719a3a6a1f93625559",
+        "footsies_mac_headless_5709b6d.zip": "7d4c931a7ace0fa34d518959713e4add7e44e4e0f128c62e8b57a9b5a052104a",
+        "footsies_mac_windowed_5709b6d.zip": "658b3b3fc37e4e5cfb92f72799aa22ce92320957b2cac668fc7a2765deb45073",
     }
 
     def __init__(self):
@@ -275,6 +282,42 @@ class BinaryManager:
         else:
             return []
 
+    def _verify_hash(self, filename: str) -> bool:
+        """
+        Verify the SHA256 hash of a downloaded binary file.
+
+        Args:
+            filename: Name of the file to verify
+
+        Returns:
+            bool: True if hash matches or no hash is registered, False on mismatch
+        """
+        expected_hash = self.BINARY_HASHES.get(filename)
+        if expected_hash is None:
+            return True
+
+        file_path = self.binaries_dir / filename
+        sha256 = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            while True:
+                chunk = f.read(8192)
+                if not chunk:
+                    break
+                sha256.update(chunk)
+
+        actual_hash = sha256.hexdigest()
+        if actual_hash != expected_hash:
+            print(
+                f"  ❌ Hash mismatch for {filename}:\n"
+                f"     expected {expected_hash}\n"
+                f"     got      {actual_hash}"
+            )
+            file_path.unlink(missing_ok=True)
+            return False
+
+        print(f"  ✅ Hash verified for {filename}")
+        return True
+
     def _download_binary(self, filename: str) -> bool:
         """
         Get a binary file by copying from local repository or downloading from HTTP.
@@ -302,6 +345,8 @@ class BinaryManager:
                 print(
                     f"  ✅ Copied {filename} ({local_path.stat().st_size} bytes)"
                 )
+                if not self._verify_hash(filename):
+                    return False
                 return True
             except Exception as e:
                 print(f"  ❌ Failed to copy from local repository: {e}")
@@ -317,7 +362,7 @@ class BinaryManager:
 
                 # Create request with user agent to avoid blocking
                 request = urllib.request.Request(url)
-                request.add_header("User-Agent", "FootsiesGym/0.4.3")
+                request.add_header("User-Agent", "FootsiesGym/0.6.0")
 
                 with urllib.request.urlopen(request, timeout=30) as response:
                     # Check if we got a valid response
@@ -333,6 +378,8 @@ class BinaryManager:
                         print(
                             f"  ✅ Downloaded {filename} ({local_path.stat().st_size} bytes)"
                         )
+                        if not self._verify_hash(filename):
+                            continue
                         return True
                     else:
                         print(f"  ❌ HTTP {response.status} from {base_url}")
