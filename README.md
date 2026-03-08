@@ -206,7 +206,9 @@ python -m experimentation.train --experiment-name <experiment-name> --debug
 
 ## Visualizing a Policy
 
-1. Launch the windowed game binary:
+Note: these steps assume you're working out of this repository. If you've pip-installed the package, you'll need to create your own script to load and execute the policy.
+
+1. Launch the windowed game binary (or skip this step and use `headless=False` on Linux):
    ```bash
    ./footsies_linux_windowed_021725 --port 80051
    ```
