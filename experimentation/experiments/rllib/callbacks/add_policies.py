@@ -1,7 +1,7 @@
 from ray.rllib.algorithms import algorithm as rllib_algorithm
 from ray.rllib.algorithms import callbacks
 
-from experimentation.components import module_repository
+from experimentation.experiments.rllib.components import module_repository
 
 
 class AddPolicies(callbacks.DefaultCallbacks):

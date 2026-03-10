@@ -4,15 +4,15 @@ import os
 from typing import TYPE_CHECKING
 
 import natsort
+import numpy as np
+from gymnasium import spaces
 from ray.rllib import policy as rllib_policy
 from ray.rllib.core.rl_module import rl_module
 from ray.rllib.examples._old_api_stack.policy import random_policy
-
-# from models.rl_modules import noop
 from ray.rllib.utils.framework import try_import_tf, try_import_torch
 
-from footsiesgym.footsies import footsies_env
 from experimentation.models.modelv2 import noop
+from footsiesgym.footsies import encoder, footsies_env
 
 tf1, tf, tfv = try_import_tf()
 torch, _ = try_import_torch()
@@ -47,13 +47,25 @@ class ModuleRepository:
 
     static_modules = {
         "random": random_policy.RandomPolicy(
-            observation_space=footsies_env.FootsiesEnv.observation_space["p1"],
-            action_space=footsies_env.FootsiesEnv.get_action_space(use_special_charge_action=False)["p1"],
+            observation_space=spaces.Box(
+                low=-np.inf,
+                high=np.inf,
+                shape=(encoder.FootsiesEncoder.observation_size,),
+            ),
+            action_space=footsies_env.FootsiesEnv.get_action_space(
+                use_special_charge_action=False
+            )["p1"],
             config={},
         ),
         "noop": noop.NoOpPolicy(
-            observation_space=footsies_env.FootsiesEnv.observation_space["p1"],
-            action_space=footsies_env.FootsiesEnv.get_action_space(use_special_charge_action=False)["p1"],
+            observation_space=spaces.Box(
+                low=-np.inf,
+                high=np.inf,
+                shape=(encoder.FootsiesEncoder.observation_size,),
+            ),
+            action_space=footsies_env.FootsiesEnv.get_action_space(
+                use_special_charge_action=False
+            )["p1"],
             config={},
         ),
         # "random_rlmodule": rl_module.SingleAgentRLModuleSpec(

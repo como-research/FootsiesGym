@@ -17,10 +17,10 @@ from ray.tune.result import (
     TIMESTEPS_TOTAL,
 )
 
-from callbacks import add_policies
-from footsiesgym.footsies import footsies_env
-from models.rl_modules import back, lstm_module, noop
-from utils import matchmaking
+import footsiesgym
+from experimentation.experiments.rllib import matchmaking
+from experimentation.experiments.rllib.callbacks import add_policies
+from experimentation.models.rl_modules import back, lstm_module, noop
 
 eval_policies = []
 
@@ -187,8 +187,7 @@ class Experiment:
         return config
 
     def env_creator(self, config, **kwargs):
-        # TODO(chase): Move port logic here instead of in the environment.
-        return footsies_env.FootsiesEnv(config=config)
+        return footsiesgym.make(config=config, rllib=True)
 
     def run(self):
         ray.init(
