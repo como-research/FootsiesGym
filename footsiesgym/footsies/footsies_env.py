@@ -27,8 +27,17 @@ class FootsiesEnv(ParallelEnv):
     LINUX_ZIP_PATH_WINDOWED = "binaries/footsies_linux_windowed_021725.zip"
     SPECIAL_CHARGE_FRAMES = 60
 
-    def __init__(self, config: dict[Any, Any] = None):
+    def __init__(
+        self, config: dict[Any, Any] = None, render_mode: str | None = None
+    ):
         super().__init__()
+        if render_mode is not None:
+            raise ValueError(
+                "FootsiesEnv does not support render_mode. "
+                "For visual rendering, set headless=False in the env config "
+                "or manually launch the windowed binaries."
+            )
+        self.render_mode = render_mode
 
         if config is None:
             config = {}
