@@ -3,10 +3,12 @@
 import grpc
 import warnings
 
-import footsies_service_pb2 as footsies__service__pb2
+from footsiesgym.footsies.game.proto import footsies_service_pb2 as footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2
 
-GRPC_GENERATED_VERSION = '1.70.0'
+GRPC_GENERATED_VERSION = '1.63.0'
 GRPC_VERSION = grpc.__version__
+EXPECTED_ERROR_RELEASE = '1.65.0'
+SCHEDULED_RELEASE_DATE = 'June 25, 2024'
 _version_not_supported = False
 
 try:
@@ -16,12 +18,15 @@ except ImportError:
     _version_not_supported = True
 
 if _version_not_supported:
-    raise RuntimeError(
+    warnings.warn(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in footsies_service_pb2_grpc.py depends on'
+        + f' but the generated code in footsiesgym/footsies/game/proto/footsies_service_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
+        + f' This warning will become an error in {EXPECTED_ERROR_RELEASE},'
+        + f' scheduled for release on {SCHEDULED_RELEASE_DATE}.',
+        RuntimeWarning
     )
 
 
@@ -36,33 +41,33 @@ class FootsiesGameServiceStub(object):
         """
         self.StartGame = channel.unary_unary(
                 '/FootsiesGameService/StartGame',
-                request_serializer=footsies__service__pb2.Empty.SerializeToString,
-                response_deserializer=footsies__service__pb2.Empty.FromString,
+                request_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
+                response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.FromString,
                 _registered_method=True)
         self.ResetGame = channel.unary_unary(
                 '/FootsiesGameService/ResetGame',
-                request_serializer=footsies__service__pb2.Empty.SerializeToString,
-                response_deserializer=footsies__service__pb2.Empty.FromString,
+                request_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
+                response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.FromString,
                 _registered_method=True)
         self.StepNFrames = channel.unary_unary(
                 '/FootsiesGameService/StepNFrames',
-                request_serializer=footsies__service__pb2.StepInput.SerializeToString,
-                response_deserializer=footsies__service__pb2.GameState.FromString,
+                request_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.StepInput.SerializeToString,
+                response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.GameState.FromString,
                 _registered_method=True)
         self.GetState = channel.unary_unary(
                 '/FootsiesGameService/GetState',
-                request_serializer=footsies__service__pb2.Empty.SerializeToString,
-                response_deserializer=footsies__service__pb2.GameState.FromString,
+                request_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
+                response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.GameState.FromString,
                 _registered_method=True)
         self.GetEncodedState = channel.unary_unary(
                 '/FootsiesGameService/GetEncodedState',
-                request_serializer=footsies__service__pb2.Empty.SerializeToString,
-                response_deserializer=footsies__service__pb2.EncodedGameState.FromString,
+                request_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
+                response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.EncodedGameState.FromString,
                 _registered_method=True)
         self.IsReady = channel.unary_unary(
                 '/FootsiesGameService/IsReady',
-                request_serializer=footsies__service__pb2.Empty.SerializeToString,
-                response_deserializer=footsies__service__pb2.BoolValue.FromString,
+                request_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
+                response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BoolValue.FromString,
                 _registered_method=True)
 
 
@@ -110,39 +115,38 @@ def add_FootsiesGameServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'StartGame': grpc.unary_unary_rpc_method_handler(
                     servicer.StartGame,
-                    request_deserializer=footsies__service__pb2.Empty.FromString,
-                    response_serializer=footsies__service__pb2.Empty.SerializeToString,
+                    request_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.FromString,
+                    response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
             ),
             'ResetGame': grpc.unary_unary_rpc_method_handler(
                     servicer.ResetGame,
-                    request_deserializer=footsies__service__pb2.Empty.FromString,
-                    response_serializer=footsies__service__pb2.Empty.SerializeToString,
+                    request_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.FromString,
+                    response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
             ),
             'StepNFrames': grpc.unary_unary_rpc_method_handler(
                     servicer.StepNFrames,
-                    request_deserializer=footsies__service__pb2.StepInput.FromString,
-                    response_serializer=footsies__service__pb2.GameState.SerializeToString,
+                    request_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.StepInput.FromString,
+                    response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.GameState.SerializeToString,
             ),
             'GetState': grpc.unary_unary_rpc_method_handler(
                     servicer.GetState,
-                    request_deserializer=footsies__service__pb2.Empty.FromString,
-                    response_serializer=footsies__service__pb2.GameState.SerializeToString,
+                    request_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.FromString,
+                    response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.GameState.SerializeToString,
             ),
             'GetEncodedState': grpc.unary_unary_rpc_method_handler(
                     servicer.GetEncodedState,
-                    request_deserializer=footsies__service__pb2.Empty.FromString,
-                    response_serializer=footsies__service__pb2.EncodedGameState.SerializeToString,
+                    request_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.FromString,
+                    response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.EncodedGameState.SerializeToString,
             ),
             'IsReady': grpc.unary_unary_rpc_method_handler(
                     servicer.IsReady,
-                    request_deserializer=footsies__service__pb2.Empty.FromString,
-                    response_serializer=footsies__service__pb2.BoolValue.SerializeToString,
+                    request_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.FromString,
+                    response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BoolValue.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
             'FootsiesGameService', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('FootsiesGameService', rpc_method_handlers)
 
 
  # This class is part of an EXPERIMENTAL API.
@@ -164,8 +168,8 @@ class FootsiesGameService(object):
             request,
             target,
             '/FootsiesGameService/StartGame',
-            footsies__service__pb2.Empty.SerializeToString,
-            footsies__service__pb2.Empty.FromString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -191,8 +195,8 @@ class FootsiesGameService(object):
             request,
             target,
             '/FootsiesGameService/ResetGame',
-            footsies__service__pb2.Empty.SerializeToString,
-            footsies__service__pb2.Empty.FromString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -218,8 +222,8 @@ class FootsiesGameService(object):
             request,
             target,
             '/FootsiesGameService/StepNFrames',
-            footsies__service__pb2.StepInput.SerializeToString,
-            footsies__service__pb2.GameState.FromString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.StepInput.SerializeToString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.GameState.FromString,
             options,
             channel_credentials,
             insecure,
@@ -245,8 +249,8 @@ class FootsiesGameService(object):
             request,
             target,
             '/FootsiesGameService/GetState',
-            footsies__service__pb2.Empty.SerializeToString,
-            footsies__service__pb2.GameState.FromString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.GameState.FromString,
             options,
             channel_credentials,
             insecure,
@@ -272,8 +276,8 @@ class FootsiesGameService(object):
             request,
             target,
             '/FootsiesGameService/GetEncodedState',
-            footsies__service__pb2.Empty.SerializeToString,
-            footsies__service__pb2.EncodedGameState.FromString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.EncodedGameState.FromString,
             options,
             channel_credentials,
             insecure,
@@ -299,8 +303,8 @@ class FootsiesGameService(object):
             request,
             target,
             '/FootsiesGameService/IsReady',
-            footsies__service__pb2.Empty.SerializeToString,
-            footsies__service__pb2.BoolValue.FromString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BoolValue.FromString,
             options,
             channel_credentials,
             insecure,
@@ -323,28 +327,28 @@ class VectorizedFootsiesServiceStub(object):
         """
         self.InitEnvironments = channel.unary_unary(
                 '/VectorizedFootsiesService/InitEnvironments',
-                request_serializer=footsies__service__pb2.InitEnvironmentsRequest.SerializeToString,
-                response_deserializer=footsies__service__pb2.Empty.FromString,
+                request_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.InitEnvironmentsRequest.SerializeToString,
+                response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.FromString,
                 _registered_method=True)
         self.BatchStep = channel.unary_unary(
                 '/VectorizedFootsiesService/BatchStep',
-                request_serializer=footsies__service__pb2.BatchStepInput.SerializeToString,
-                response_deserializer=footsies__service__pb2.BatchEncodedState.FromString,
+                request_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchStepInput.SerializeToString,
+                response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.FromString,
                 _registered_method=True)
         self.BatchReset = channel.unary_unary(
                 '/VectorizedFootsiesService/BatchReset',
-                request_serializer=footsies__service__pb2.BatchResetInput.SerializeToString,
-                response_deserializer=footsies__service__pb2.BatchEncodedState.FromString,
+                request_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchResetInput.SerializeToString,
+                response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.FromString,
                 _registered_method=True)
         self.BatchResetAll = channel.unary_unary(
                 '/VectorizedFootsiesService/BatchResetAll',
-                request_serializer=footsies__service__pb2.Empty.SerializeToString,
-                response_deserializer=footsies__service__pb2.BatchEncodedState.FromString,
+                request_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
+                response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.FromString,
                 _registered_method=True)
         self.IsVecReady = channel.unary_unary(
                 '/VectorizedFootsiesService/IsVecReady',
-                request_serializer=footsies__service__pb2.Empty.SerializeToString,
-                response_deserializer=footsies__service__pb2.BoolValue.FromString,
+                request_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
+                response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BoolValue.FromString,
                 _registered_method=True)
 
 
@@ -386,34 +390,33 @@ def add_VectorizedFootsiesServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'InitEnvironments': grpc.unary_unary_rpc_method_handler(
                     servicer.InitEnvironments,
-                    request_deserializer=footsies__service__pb2.InitEnvironmentsRequest.FromString,
-                    response_serializer=footsies__service__pb2.Empty.SerializeToString,
+                    request_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.InitEnvironmentsRequest.FromString,
+                    response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
             ),
             'BatchStep': grpc.unary_unary_rpc_method_handler(
                     servicer.BatchStep,
-                    request_deserializer=footsies__service__pb2.BatchStepInput.FromString,
-                    response_serializer=footsies__service__pb2.BatchEncodedState.SerializeToString,
+                    request_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchStepInput.FromString,
+                    response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.SerializeToString,
             ),
             'BatchReset': grpc.unary_unary_rpc_method_handler(
                     servicer.BatchReset,
-                    request_deserializer=footsies__service__pb2.BatchResetInput.FromString,
-                    response_serializer=footsies__service__pb2.BatchEncodedState.SerializeToString,
+                    request_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchResetInput.FromString,
+                    response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.SerializeToString,
             ),
             'BatchResetAll': grpc.unary_unary_rpc_method_handler(
                     servicer.BatchResetAll,
-                    request_deserializer=footsies__service__pb2.Empty.FromString,
-                    response_serializer=footsies__service__pb2.BatchEncodedState.SerializeToString,
+                    request_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.FromString,
+                    response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.SerializeToString,
             ),
             'IsVecReady': grpc.unary_unary_rpc_method_handler(
                     servicer.IsVecReady,
-                    request_deserializer=footsies__service__pb2.Empty.FromString,
-                    response_serializer=footsies__service__pb2.BoolValue.SerializeToString,
+                    request_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.FromString,
+                    response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BoolValue.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
             'VectorizedFootsiesService', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('VectorizedFootsiesService', rpc_method_handlers)
 
 
  # This class is part of an EXPERIMENTAL API.
@@ -435,8 +438,8 @@ class VectorizedFootsiesService(object):
             request,
             target,
             '/VectorizedFootsiesService/InitEnvironments',
-            footsies__service__pb2.InitEnvironmentsRequest.SerializeToString,
-            footsies__service__pb2.Empty.FromString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.InitEnvironmentsRequest.SerializeToString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,
@@ -462,8 +465,8 @@ class VectorizedFootsiesService(object):
             request,
             target,
             '/VectorizedFootsiesService/BatchStep',
-            footsies__service__pb2.BatchStepInput.SerializeToString,
-            footsies__service__pb2.BatchEncodedState.FromString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchStepInput.SerializeToString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.FromString,
             options,
             channel_credentials,
             insecure,
@@ -489,8 +492,8 @@ class VectorizedFootsiesService(object):
             request,
             target,
             '/VectorizedFootsiesService/BatchReset',
-            footsies__service__pb2.BatchResetInput.SerializeToString,
-            footsies__service__pb2.BatchEncodedState.FromString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchResetInput.SerializeToString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.FromString,
             options,
             channel_credentials,
             insecure,
@@ -516,8 +519,8 @@ class VectorizedFootsiesService(object):
             request,
             target,
             '/VectorizedFootsiesService/BatchResetAll',
-            footsies__service__pb2.Empty.SerializeToString,
-            footsies__service__pb2.BatchEncodedState.FromString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.FromString,
             options,
             channel_credentials,
             insecure,
@@ -543,8 +546,8 @@ class VectorizedFootsiesService(object):
             request,
             target,
             '/VectorizedFootsiesService/IsVecReady',
-            footsies__service__pb2.Empty.SerializeToString,
-            footsies__service__pb2.BoolValue.FromString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BoolValue.FromString,
             options,
             channel_credentials,
             insecure,
