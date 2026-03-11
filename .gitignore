@@ -1,5 +1,6 @@
 /.vscode
 /__pycache__
+wandb/
 
 .DS_Store
 */.DS_Store
