@@ -1,7 +1,9 @@
 import functools
 import os
 
+import numpy as np
 import ray
+from gymnasium import spaces
 from ray import air, tune
 from ray.air.integrations.wandb import WandbLoggerCallback
 from ray.rllib.algorithms import appo
@@ -18,11 +20,16 @@ from ray.tune.result import (
 )
 from ray.tune.search.hyperopt import HyperOptSearch
 
-from experimentation.callbacks import add_policies, script_metrics, winrates
-from footsiesgym.footsies import footsies_env
-from experimentation.models.modelv2 import back, lstm_model, noop, footsies_bot
-from experimentation.utils import matchmaking
-from experimentation.components import emagnet
+import footsiesgym
+from experimentation.experiments.rllib import matchmaking
+from experimentation.experiments.rllib.callbacks import (
+    add_policies,
+    script_metrics,
+    winrates,
+)
+from experimentation.experiments.rllib.components import emagnet
+from experimentation.models.modelv2 import back, footsies_bot, lstm_model, noop
+from footsiesgym.footsies import encoder, footsies_env
 
 
 def eval_policy_mapping_fn(*args, **kwargs): ...
@@ -105,10 +112,14 @@ class Experiment:
 
     def construct_model_config(self, as_dict=True):
 
-        policy_observation_space = footsies_env.FootsiesEnv.observation_space[
-            "p1"
-        ]
-        policy_action_space = footsies_env.FootsiesEnv.get_action_space(use_special_charge_action=True)["p1"]
+        policy_observation_space = spaces.Box(
+            low=-np.inf,
+            high=np.inf,
+            shape=(encoder.FootsiesEncoder.observation_size,),
+        )
+        policy_action_space = footsies_env.FootsiesEnv.get_action_space(
+            use_special_charge_action=True
+        )["p1"]
 
         # Add policy names stored in the ModuleRepository here to evaluate against them
         eval_policies = []
@@ -215,7 +226,8 @@ class Experiment:
                                     eval_policy,
                                     1 / (len(eval_policies) + 2),
                                 )
-                                for eval_policy in eval_policies + ["footsies_bot", "random"]
+                                for eval_policy in eval_policies
+                                + ["footsies_bot", "random"]
                             ]
                         ).policy_mapping_fn,
                     },
@@ -265,14 +277,14 @@ class Experiment:
                 vf_loss_coeff=1.0,
                 lambda_=0.95,
             )
-        
-        config["magnet_learning_rate_schedule"] = (6e-4)/16
+
+        config["magnet_learning_rate_schedule"] = (6e-4) / 16
         config["temperature_schedule"] = 0.04
-        
+
         return config
 
     def env_creator(self, config, **kwargs):
-        return footsies_env.FootsiesEnv(config=config)
+        return footsiesgym.make(config=config, rllib=True)
 
     def run(self):
         ray.init(

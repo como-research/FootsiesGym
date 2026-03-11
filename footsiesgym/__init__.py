@@ -22,6 +22,7 @@ def make(
     config: dict | None = None,
     platform: str = "linux",
     launch_binaries: bool = True,
+    rllib: bool = False,
 ):
     """
     Create a FootsiesGym environment.
@@ -30,9 +31,10 @@ def make(
         config: Configuration dictionary for the environment
         platform: Platform to run on (currently only "linux" supported for auto-launch)
         launch_binaries: Whether to automatically launch game binaries
+        rllib: If True, wrap the environment for RLlib (requires ray[rllib])
 
     Returns:
-        FootsiesEnv: The configured environment instance
+        A FootsiesEnv (PettingZoo ParallelEnv), or an RLlib MultiAgentEnv if rllib=True.
     """
     if launch_binaries:
         assert platform == "linux", (
@@ -49,4 +51,11 @@ def make(
     if config is not None:
         default_config.update(config)
 
-    return FootsiesEnv(config=default_config)
+    env = FootsiesEnv(config=default_config)
+
+    if rllib:
+        from footsiesgym.wrappers import wrap_rllib
+
+        return wrap_rllib(env)
+
+    return env

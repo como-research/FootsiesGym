@@ -1,4 +1,5 @@
 import collections
+import functools
 import os
 import platform
 import subprocess
@@ -8,7 +9,7 @@ from typing import Any
 import numpy as np
 import portpicker
 from gymnasium import spaces
-from ray.rllib import env
+from pettingzoo import ParallelEnv
 
 from footsiesgym.footsies.game.proto import (
     footsies_service_pb2 as footsies_pb2,
@@ -20,25 +21,23 @@ from . import encoder
 from .game import constants, footsies_game
 
 
-class FootsiesEnv(env.MultiAgentEnv):
-    metadata = {"render.modes": ["human"]}
+class FootsiesEnv(ParallelEnv):
+    metadata = {"render_modes": ["human"], "name": "footsies_v0"}
     LINUX_ZIP_PATH_HEADLESS = "binaries/footsies_linux_headless_c1a9177.zip"
     LINUX_ZIP_PATH_WINDOWED = "binaries/footsies_linux_windowed_c1a9177.zip"
     SPECIAL_CHARGE_FRAMES = 60
 
-    observation_space = spaces.Dict(
-        {
-            agent: spaces.Box(
-                low=-np.inf,
-                high=np.inf,
-                shape=(encoder.FootsiesEncoder.observation_size,),
+    def __init__(
+        self, config: dict[Any, Any] = None, render_mode: str | None = None
+    ):
+        super().__init__()
+        if render_mode is not None:
+            raise ValueError(
+                "FootsiesEnv does not support render_mode. "
+                "For visual rendering, set headless=False in the env config "
+                "or manually launch the windowed binaries."
             )
-            for agent in ["p1", "p2"]
-        }
-    )
-
-    def __init__(self, config: dict[Any, Any] = None):
-        super(FootsiesEnv, self).__init__()
+        self.render_mode = render_mode
 
         if config is None:
             config = {}
@@ -49,7 +48,6 @@ class FootsiesEnv(env.MultiAgentEnv):
         self.use_build_encoding = config.get("use_build_encoding", False)
         self.agents: list[AgentID] = ["p1", "p2"]
         self.possible_agents: list[AgentID] = self.agents.copy()
-        self._agent_ids: set[AgentID] = set(self.agents)
         self.win_reward_scaling_coeff = self.config.get(
             "win_reward_scaling_coeff", 1.0
         )
@@ -70,8 +68,8 @@ class FootsiesEnv(env.MultiAgentEnv):
         #  Agent selects:  [SPECIAL_CHARGE, NONE, SPECIAL_CHARGE]
         #  Executed Action: [ATTACK, ATTACK, NONE]
         # The second special charge deactivates the held ATTACK.
-        self.action_space: dict[AgentID, spaces.Discrete] = (
-            self.get_action_space(
+        self._action_spaces: dict[AgentID, spaces.Discrete] = (
+            self._build_action_spaces(
                 use_special_charge_action=config.get(
                     "use_special_charge_action", False
                 )
@@ -144,8 +142,25 @@ class FootsiesEnv(env.MultiAgentEnv):
             "p2": False,
         }
 
+    @functools.lru_cache(maxsize=None)
+    def observation_space(self, agent: AgentID) -> spaces.Box:
+        return spaces.Box(
+            low=-np.inf,
+            high=np.inf,
+            shape=(encoder.FootsiesEncoder.observation_size,),
+        )
+
+    @functools.lru_cache(maxsize=None)
+    def action_space(self, agent: AgentID) -> spaces.Discrete:
+        return self._action_spaces[agent]
+
     @classmethod
     def get_action_space(cls, use_special_charge_action: bool = False):
+        """Return a dict mapping agent IDs to their Discrete action spaces."""
+        return cls._build_action_spaces(use_special_charge_action)
+
+    @classmethod
+    def _build_action_spaces(cls, use_special_charge_action: bool = False):
         available_actions = [
             constants.EnvActions.NONE,
             constants.EnvActions.BACK,
@@ -155,24 +170,13 @@ class FootsiesEnv(env.MultiAgentEnv):
             constants.EnvActions.FORWARD_ATTACK,
         ]
 
-        # Add special charge action, if desired. The special actions
-        # require that the ATTACK button be held for 60 frames. Depending
-        # on enviroment parameters, this may be exceedingly long
-        # for the agent to learn to hold a single button. The SPECIAL_CHARGE
-        # action toggles whether or not the agent wishes to hold ATTACK.
-        # For example:
-        #  Agent selects:  [SPECIAL_CHARGE, NONE, SPECIAL_CHARGE]
-        #  Executed Action: [ATTACK, ATTACK, NONE]
-        # The second special charge deactivates the held ATTACK.
         if use_special_charge_action:
             available_actions.append(constants.EnvActions.SPECIAL_CHARGE)
 
-        return spaces.Dict(
-            {
-                agent: spaces.Discrete(len(available_actions))
-                for agent in ["p1", "p2"]
-            }
-        )
+        return {
+            agent: spaces.Discrete(len(available_actions))
+            for agent in ["p1", "p2"]
+        }
 
     def _get_fight_state_dicts(self):
         """
@@ -625,14 +629,12 @@ class FootsiesEnv(env.MultiAgentEnv):
         terminateds = {
             "p1": terminated,
             "p2": terminated,
-            "__all__": terminated,
         }
 
         truncated = self.t >= self.max_t
         truncateds = {
             "p1": truncated,
             "p2": truncated,
-            "__all__": truncated,
         }
 
         self.last_game_state = game_state
