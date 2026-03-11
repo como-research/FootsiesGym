@@ -23,8 +23,8 @@ from .game import constants, footsies_game
 
 class FootsiesEnv(ParallelEnv):
     metadata = {"render_modes": ["human"], "name": "footsies_v0"}
-    LINUX_ZIP_PATH_HEADLESS = "binaries/footsies_linux_server_021725.zip"
-    LINUX_ZIP_PATH_WINDOWED = "binaries/footsies_linux_windowed_021725.zip"
+    LINUX_ZIP_PATH_HEADLESS = "binaries/footsies_linux_headless_c1a9177.zip"
+    LINUX_ZIP_PATH_WINDOWED = "binaries/footsies_linux_windowed_c1a9177.zip"
     SPECIAL_CHARGE_FRAMES = 60
 
     def __init__(
