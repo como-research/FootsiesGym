@@ -30,7 +30,7 @@ class BinaryManager:
     """Manages automatic downloading and caching of FootsiesGym binaries."""
 
     # Primary download URL (Cloudflare R2 bucket)
-    DOWNLOAD_BASE_URL = "https://footsiesgym.chasemcd.com/v0.6.0"
+    DOWNLOAD_BASE_URL = "https://footsiesgym.chasemcd.com/v0.7.0"
 
     # Fallback URLs in case primary fails
     FALLBACK_URLS = [
@@ -39,16 +39,16 @@ class BinaryManager:
     ]
 
     BINARY_FILES = {
-        "footsies_linux_server_021725.zip": "footsies_linux_server_021725.zip",
-        "footsies_linux_windowed_021725.zip": "footsies_linux_windowed_021725.zip",
+        "footsies_linux_headless_c1a9177.zip": "footsies_linux_headless_c1a9177.zip",
+        "footsies_linux_windowed_c1a9177.zip": "footsies_linux_windowed_c1a9177.zip",
         "footsies_mac_headless_5709b6d.zip": "footsies_mac_headless_5709b6d.zip",
         "footsies_mac_windowed_5709b6d.zip": "footsies_mac_windowed_5709b6d.zip",
     }
 
     # SHA256 hashes for integrity verification
     BINARY_HASHES = {
-        "footsies_linux_server_021725.zip": "d5fd18bd1d9d97236fc03143d8711f8fe64aaadfc5eba5621b6a8cce098fb02e",
-        "footsies_linux_windowed_021725.zip": "7206527913ad5f5eeebac31faf5aa46ebd6956e58eb652719a3a6a1f93625559",
+        "footsies_linux_headless_c1a9177.zip": "4222b21914da7d45c2279388c033e99c2ef60489de88ec97540a61b9d3263f58",
+        "footsies_linux_windowed_c1a9177.zip": "39e6d588b8ab2f1ebbcd6ab51224ca9d191e35344b48c6445ab3776bcec4b51f",
         "footsies_mac_headless_5709b6d.zip": "7d4c931a7ace0fa34d518959713e4add7e44e4e0f128c62e8b57a9b5a052104a",
         "footsies_mac_windowed_5709b6d.zip": "658b3b3fc37e4e5cfb92f72799aa22ce92320957b2cac668fc7a2765deb45073",
     }
@@ -196,9 +196,9 @@ class BinaryManager:
                 # Get the appropriate zip file
                 if platform.lower() == "linux":
                     zip_filename = (
-                        "footsies_linux_server_021725.zip"
+                        "footsies_linux_headless_c1a9177.zip"
                         if headless
-                        else "footsies_linux_windowed_021725.zip"
+                        else "footsies_linux_windowed_c1a9177.zip"
                     )
                 else:
                     zip_filename = (
@@ -284,8 +284,8 @@ class BinaryManager:
         """Get the list of required binary files for a platform."""
         if platform.lower() == "linux":
             return [
-                "footsies_linux_server_021725.zip",
-                "footsies_linux_windowed_021725.zip",
+                "footsies_linux_headless_c1a9177.zip",
+                "footsies_linux_windowed_c1a9177.zip",
             ]
         elif platform.lower() == "mac":
             return [
@@ -426,9 +426,9 @@ class BinaryManager:
         """
         if platform.lower() == "linux":
             filename = (
-                "footsies_linux_windowed_021725.zip"
+                "footsies_linux_windowed_c1a9177.zip"
                 if windowed
-                else "footsies_linux_server_021725.zip"
+                else "footsies_linux_headless_c1a9177.zip"
             )
         elif platform.lower() == "mac":
             filename = (

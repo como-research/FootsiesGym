@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script to unpack footsies_linux_server_021725.zip and rename to footsies_binaries
+# Script to unpack footsies_linux_headless_c1a9177.zip and rename to footsies_binaries
 
 set -e  # Exit on any error
 
@@ -12,8 +12,8 @@ then
 fi
 
 # Check if the zip file exists
-if [ ! -f "binaries/footsies_linux_server_021725.zip" ]; then
-    echo "Error: binaries/footsies_linux_server_021725.zip not found!"
+if [ ! -f "binaries/footsies_linux_headless_c1a9177.zip" ]; then
+    echo "Error: binaries/footsies_linux_headless_c1a9177.zip not found!"
     exit 1
 fi
 
@@ -30,8 +30,8 @@ if ! command -v python3 &> /dev/null; then
 fi
 
 # Extract the zip file using Python
-echo "Extracting footsies_linux_server_021725.zip..."
-$PYTHON_CMD -m zipfile -e footsies_linux_server_021725.zip .
+echo "Extracting footsies_linux_headless_c1a9177.zip..."
+$PYTHON_CMD -m zipfile -e footsies_linux_headless_c1a9177.zip .
 
 # Find the extracted directory (assuming there's only one top-level directory)
 EXTRACTED_DIR=$(find . -maxdepth 1 -type d ! -name '.' | head -n 1)
