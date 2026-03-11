@@ -2,15 +2,28 @@
 Binary manager for FootsiesGym - handles automatic binary downloads.
 """
 
-import fcntl
 import hashlib
 import os
 import shutil
+import sys
 import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
 from typing import Optional
+
+if sys.platform == "win32":
+    import msvcrt
+
+    def _flock(fd):
+        """Acquire an exclusive lock on the file descriptor (Windows)."""
+        msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
+else:
+    import fcntl
+
+    def _flock(fd):
+        """Acquire an exclusive lock on the file descriptor (Unix)."""
+        fcntl.flock(fd, fcntl.LOCK_EX)
 
 
 class BinaryManager:
@@ -78,7 +91,7 @@ class BinaryManager:
             # Create lock file and acquire exclusive lock
             with open(lock_file, "w") as lock_fd:
                 print(f"🔒 Acquiring download lock for {platform} binaries...")
-                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
+                _flock(lock_fd.fileno())
 
                 # Re-check if files exist after acquiring lock (another process might have downloaded them)
                 missing_files = []
@@ -165,7 +178,7 @@ class BinaryManager:
                 print(
                     f"🔒 Acquiring extraction lock for {platform} binaries..."
                 )
-                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
+                _flock(lock_fd.fileno())
 
                 # Re-check if extracted binaries exist after acquiring lock
                 if os.path.exists(binary_path):
