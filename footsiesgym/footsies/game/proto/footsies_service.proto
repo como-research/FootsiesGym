@@ -76,11 +76,55 @@ message BatchResetInput {
 }
 
 message BatchEncodedState {
-    repeated float p1_encodings = 1;
-    repeated float p2_encodings = 2;
+    // Common fields
     repeated int64 round_states = 3;
     repeated bool dones = 4;
     repeated int32 rewards = 5;
+    repeated int64 frame_counts = 6;
+
+    // P1 state arrays (each length num_envs)
+    repeated float p1_position_x = 7;
+    repeated bool p1_is_dead = 8;
+    repeated int64 p1_vital_health = 9;
+    repeated int64 p1_guard_health = 10;
+    repeated int64 p1_current_action_id = 11;
+    repeated int64 p1_current_action_frame = 12;
+    repeated int64 p1_current_action_frame_count = 13;
+    repeated bool p1_is_action_end = 14;
+    repeated bool p1_is_always_cancelable = 15;
+    repeated int64 p1_current_action_hit_count = 16;
+    repeated int64 p1_current_hit_stun_frame = 17;
+    repeated bool p1_is_in_hit_stun = 18;
+    repeated int64 p1_sprite_shake_position = 19;
+    repeated int64 p1_max_sprite_shake_frame = 20;
+    repeated float p1_velocity_x = 21;
+    repeated bool p1_is_face_right = 22;
+    repeated int64 p1_current_frame_advantage = 23;
+    repeated bool p1_would_next_forward_input_dash = 24;
+    repeated bool p1_would_next_backward_input_dash = 25;
+    repeated float p1_special_attack_progress = 26;
+
+    // P2 state arrays (each length num_envs)
+    repeated float p2_position_x = 27;
+    repeated bool p2_is_dead = 28;
+    repeated int64 p2_vital_health = 29;
+    repeated int64 p2_guard_health = 30;
+    repeated int64 p2_current_action_id = 31;
+    repeated int64 p2_current_action_frame = 32;
+    repeated int64 p2_current_action_frame_count = 33;
+    repeated bool p2_is_action_end = 34;
+    repeated bool p2_is_always_cancelable = 35;
+    repeated int64 p2_current_action_hit_count = 36;
+    repeated int64 p2_current_hit_stun_frame = 37;
+    repeated bool p2_is_in_hit_stun = 38;
+    repeated int64 p2_sprite_shake_position = 39;
+    repeated int64 p2_max_sprite_shake_frame = 40;
+    repeated float p2_velocity_x = 41;
+    repeated bool p2_is_face_right = 42;
+    repeated int64 p2_current_frame_advantage = 43;
+    repeated bool p2_would_next_forward_input_dash = 44;
+    repeated bool p2_would_next_backward_input_dash = 45;
+    repeated float p2_special_attack_progress = 46;
 }
 
 message BoolValue {
