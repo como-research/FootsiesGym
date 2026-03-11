@@ -55,3 +55,9 @@ parameters:
     values:
       - true
       - false
+  # Network
+  hidden_size:
+    values:
+      - 64
+      - 128
+      - 256

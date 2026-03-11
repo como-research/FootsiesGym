@@ -40,6 +40,8 @@ DEFAULT_CONFIG = {
     "vf_coef": 1.0,
     "max_grad_norm": 0.5,
     "target_kl": None,
+    # Network
+    "hidden_size": 256,
     # Evaluation
     "num_eval_envs": 48,
     "eval_episodes": 250,
@@ -178,19 +180,19 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 
 
 class Agent(nn.Module):
-    def __init__(self, envs):
+    def __init__(self, envs, hidden_size=256):
         super().__init__()
         obs_size = np.array(envs.single_observation_space.shape).prod()
         self.network = nn.Sequential(
-            layer_init(nn.Linear(obs_size, 256)),
+            layer_init(nn.Linear(obs_size, hidden_size)),
             nn.ReLU(),
-            layer_init(nn.Linear(256, 256)),
+            layer_init(nn.Linear(hidden_size, hidden_size)),
             nn.ReLU(),
         )
         self.actor = layer_init(
-            nn.Linear(256, envs.single_action_space.n), std=0.01
+            nn.Linear(hidden_size, envs.single_action_space.n), std=0.01
         )
-        self.critic = layer_init(nn.Linear(256, 1), std=1)
+        self.critic = layer_init(nn.Linear(hidden_size, 1), std=1)
 
     def get_value(self, x):
         return self.critic(self.network(x))
@@ -321,7 +323,7 @@ def train():
         envs.single_action_space, gym.spaces.Discrete
     ), "only discrete action space is supported"
 
-    agent = Agent(envs).to(device)
+    agent = Agent(envs, hidden_size=config["hidden_size"]).to(device)
     optimizer = optim.Adam(
         agent.parameters(), lr=config["learning_rate"], eps=1e-5
     )
