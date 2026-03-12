@@ -333,16 +333,41 @@ class VectorizedFootsiesServiceStub(object):
         self.BatchStep = channel.unary_unary(
                 '/VectorizedFootsiesService/BatchStep',
                 request_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchStepInput.SerializeToString,
-                response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.FromString,
+                response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchRawState.FromString,
                 _registered_method=True)
         self.BatchReset = channel.unary_unary(
                 '/VectorizedFootsiesService/BatchReset',
                 request_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchResetInput.SerializeToString,
-                response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.FromString,
+                response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchRawState.FromString,
                 _registered_method=True)
         self.BatchResetAll = channel.unary_unary(
                 '/VectorizedFootsiesService/BatchResetAll',
                 request_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
+                response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchRawState.FromString,
+                _registered_method=True)
+        self.BatchStepEncoded = channel.unary_unary(
+                '/VectorizedFootsiesService/BatchStepEncoded',
+                request_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchStepEncodedInput.SerializeToString,
+                response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.FromString,
+                _registered_method=True)
+        self.BatchResetEncoded = channel.unary_unary(
+                '/VectorizedFootsiesService/BatchResetEncoded',
+                request_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchResetEncodedInput.SerializeToString,
+                response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.FromString,
+                _registered_method=True)
+        self.BatchResetAllEncoded = channel.unary_unary(
+                '/VectorizedFootsiesService/BatchResetAllEncoded',
+                request_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchResetAllEncodedInput.SerializeToString,
+                response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.FromString,
+                _registered_method=True)
+        self.GetBatchRawState = channel.unary_unary(
+                '/VectorizedFootsiesService/GetBatchRawState',
+                request_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
+                response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchRawState.FromString,
+                _registered_method=True)
+        self.GetBatchEncodedState = channel.unary_unary(
+                '/VectorizedFootsiesService/GetBatchEncodedState',
+                request_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.GetBatchEncodedStateInput.SerializeToString,
                 response_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.FromString,
                 _registered_method=True)
         self.IsVecReady = channel.unary_unary(
@@ -362,7 +387,8 @@ class VectorizedFootsiesServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def BatchStep(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Raw state endpoints - Python performs encoding
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -374,6 +400,38 @@ class VectorizedFootsiesServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def BatchResetAll(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def BatchStepEncoded(self, request, context):
+        """Encoded state endpoints - C# performs encoding via VectorizedEncoder
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def BatchResetEncoded(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def BatchResetAllEncoded(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetBatchRawState(self, request, context):
+        """State getters - get current state in either format without stepping
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetBatchEncodedState(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -396,16 +454,41 @@ def add_VectorizedFootsiesServiceServicer_to_server(servicer, server):
             'BatchStep': grpc.unary_unary_rpc_method_handler(
                     servicer.BatchStep,
                     request_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchStepInput.FromString,
-                    response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.SerializeToString,
+                    response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchRawState.SerializeToString,
             ),
             'BatchReset': grpc.unary_unary_rpc_method_handler(
                     servicer.BatchReset,
                     request_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchResetInput.FromString,
-                    response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.SerializeToString,
+                    response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchRawState.SerializeToString,
             ),
             'BatchResetAll': grpc.unary_unary_rpc_method_handler(
                     servicer.BatchResetAll,
                     request_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.FromString,
+                    response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchRawState.SerializeToString,
+            ),
+            'BatchStepEncoded': grpc.unary_unary_rpc_method_handler(
+                    servicer.BatchStepEncoded,
+                    request_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchStepEncodedInput.FromString,
+                    response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.SerializeToString,
+            ),
+            'BatchResetEncoded': grpc.unary_unary_rpc_method_handler(
+                    servicer.BatchResetEncoded,
+                    request_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchResetEncodedInput.FromString,
+                    response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.SerializeToString,
+            ),
+            'BatchResetAllEncoded': grpc.unary_unary_rpc_method_handler(
+                    servicer.BatchResetAllEncoded,
+                    request_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchResetAllEncodedInput.FromString,
+                    response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.SerializeToString,
+            ),
+            'GetBatchRawState': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetBatchRawState,
+                    request_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.FromString,
+                    response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchRawState.SerializeToString,
+            ),
+            'GetBatchEncodedState': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetBatchEncodedState,
+                    request_deserializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.GetBatchEncodedStateInput.FromString,
                     response_serializer=footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.SerializeToString,
             ),
             'IsVecReady': grpc.unary_unary_rpc_method_handler(
@@ -466,7 +549,7 @@ class VectorizedFootsiesService(object):
             target,
             '/VectorizedFootsiesService/BatchStep',
             footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchStepInput.SerializeToString,
-            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.FromString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchRawState.FromString,
             options,
             channel_credentials,
             insecure,
@@ -493,7 +576,7 @@ class VectorizedFootsiesService(object):
             target,
             '/VectorizedFootsiesService/BatchReset',
             footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchResetInput.SerializeToString,
-            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.FromString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchRawState.FromString,
             options,
             channel_credentials,
             insecure,
@@ -520,6 +603,141 @@ class VectorizedFootsiesService(object):
             target,
             '/VectorizedFootsiesService/BatchResetAll',
             footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchRawState.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def BatchStepEncoded(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/VectorizedFootsiesService/BatchStepEncoded',
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchStepEncodedInput.SerializeToString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def BatchResetEncoded(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/VectorizedFootsiesService/BatchResetEncoded',
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchResetEncodedInput.SerializeToString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def BatchResetAllEncoded(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/VectorizedFootsiesService/BatchResetAllEncoded',
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchResetAllEncodedInput.SerializeToString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetBatchRawState(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/VectorizedFootsiesService/GetBatchRawState',
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.Empty.SerializeToString,
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchRawState.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetBatchEncodedState(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/VectorizedFootsiesService/GetBatchEncodedState',
+            footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.GetBatchEncodedStateInput.SerializeToString,
             footsiesgym_dot_footsies_dot_game_dot_proto_dot_footsies__service__pb2.BatchEncodedState.FromString,
             options,
             channel_credentials,
