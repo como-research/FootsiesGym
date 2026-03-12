@@ -1,6 +1,5 @@
 # Adapted from CleanRL's ppo_pettingzoo_ma_atari.py for FootsiesGym.
 # Original: https://docs.cleanrl.dev/rl-algorithms/ppo/#ppo_pettingzoo_ma_ataripy
-import concurrent.futures
 import random
 import time
 
@@ -25,8 +24,8 @@ DEFAULT_CONFIG = {
     # PPO
     "total_timesteps": 10_000_000,
     "learning_rate": 6e-4,
-    "num_envs": 48,  # agent slots (2 per game instance)
-    "num_steps": 256,  # steps per rollout per env
+    "num_envs": 96,  # agent slots (2 per game instance)
+    "num_steps": 2048,  # steps per rollout per env
     "anneal_lr": False,
     "anneal_ent": False,
     "gamma": 0.99,
@@ -43,134 +42,113 @@ DEFAULT_CONFIG = {
     # Network
     "hidden_size": 256,
     # Evaluation
-    "num_eval_envs": 48,
+    "num_eval_envs": 96,
     "eval_episodes": 250,
-    "eval_interval": 25,  # evaluate every N updates
+    "eval_interval": 1,  # evaluate every N updates
+}
+
+ENV_CONFIG = {
+    "frame_skip": 4,
+    "action_delay": 16,
+    "max_t": 4000,
+    "use_special_charge_action": True,
+    "win_reward_scaling_coeff": 10.0,
+    "guard_break_reward": 0.0,
+    "headless": True,
 }
 
 
-def make_env():
-    """Create a single FootsiesGym ParallelEnv."""
+def make_vec_env(num_game_instances: int):
+    """Create a single vectorized FootsiesEnv with N game instances."""
     return footsiesgym.make(
-        config={
-            "frame_skip": 4,
-            "action_delay": 16,
-            "max_t": 4000,
-            "use_special_charge_action": True,
-            "win_reward_scaling_coeff": 10.0,
-            "guard_break_reward": 0.0,
-            "headless": True,
-        },
+        config={**ENV_CONFIG, "num_envs": num_game_instances},
         launch_binaries=True,
     )
 
 
 class FootsiesVecEnv(gym.Env):
-    """Vectorized wrapper over multiple FootsiesEnv (PettingZoo ParallelEnv) instances.
+    """Thin wrapper that flattens a vectorized FootsiesEnv's p1/p2
+    dict outputs into flat agent slots for CleanRL's PPO loop.
 
-    Each game instance has 2 agents (p1, p2). This wrapper flattens them into
-    a single VecEnv-like interface where slot 2*i is p1 of game i and slot 2*i+1
-    is p2 of game i. gRPC calls are parallelized with threads since they
-    release the GIL.
+    Slot layout: [p1_env0, p1_env1, ..., p1_envN-1,
+                  p2_env0, p2_env1, ..., p2_envN-1]
     """
 
     def __init__(self, num_game_instances: int):
         super().__init__()
-        self.envs = [make_env() for _ in range(num_game_instances)]
+        self.env = make_vec_env(num_game_instances)
         self.num_game_instances = num_game_instances
-        self.num_agents = 2  # p1, p2
-        self.num_envs = num_game_instances * self.num_agents
-        self.agents = ["p1", "p2"]
-        self._pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=num_game_instances
-        )
+        self.num_envs = num_game_instances * 2  # p1 + p2 slots
+        self.N = num_game_instances
 
-        # Spaces (same for all agents)
-        sample_env = self.envs[0]
-        self.single_observation_space = sample_env.observation_space("p1")
-        self.single_action_space = sample_env.action_space("p1")
+        self.single_observation_space = self.env.observation_space("p1")
+        self.single_action_space = self.env.action_space("p1")
         self.observation_space = self.single_observation_space
         self.action_space = self.single_action_space
         self.is_vector_env = True
 
-        # Cumulative episode returns and lengths per slot
+        # Episode tracking per slot
         self._episode_returns = np.zeros(self.num_envs, dtype=np.float32)
         self._episode_lengths = np.zeros(self.num_envs, dtype=np.int64)
 
     def reset(self, seed=None, options=None):
-        all_obs = np.zeros(
-            (self.num_envs,) + self.single_observation_space.shape,
-            dtype=np.float32,
-        )
+        obs, _ = self.env.reset(seed=seed, options=options)
         self._episode_returns[:] = 0.0
         self._episode_lengths[:] = 0
-
-        def _reset(i):
-            return i, self.envs[i].reset(seed=seed, options=options)
-
-        for i, (obs, _) in self._pool.map(
-            _reset, range(self.num_game_instances)
-        ):
-            all_obs[2 * i] = obs["p1"]
-            all_obs[2 * i + 1] = obs["p2"]
-        return all_obs, {}
+        # Concatenate p1 block and p2 block
+        flat_obs = np.concatenate([obs["p1"], obs["p2"]], axis=0).astype(
+            np.float32
+        )
+        return flat_obs, {}
 
     def step(self, actions):
-        all_obs = np.zeros(
-            (self.num_envs,) + self.single_observation_space.shape,
-            dtype=np.float32,
+        N = self.N
+        # Split flat actions back into p1/p2 arrays
+        action_dict = {
+            "p1": actions[:N].astype(np.int64),
+            "p2": actions[N:].astype(np.int64),
+        }
+        obs, rewards, terminateds, truncateds, _ = self.env.step(action_dict)
+
+        flat_obs = np.concatenate([obs["p1"], obs["p2"]], axis=0).astype(
+            np.float32
         )
-        all_rewards = np.zeros(self.num_envs, dtype=np.float32)
-        all_terminated = np.zeros(self.num_envs, dtype=bool)
-        all_truncated = np.zeros(self.num_envs, dtype=bool)
-        all_infos = {}
-        final_infos = [None] * self.num_envs
+        flat_rewards = np.concatenate([rewards["p1"], rewards["p2"]]).astype(
+            np.float32
+        )
+        flat_terminated = np.concatenate([terminateds["p1"], terminateds["p2"]])
+        flat_truncated = np.concatenate([truncateds["p1"], truncateds["p2"]])
+        flat_done = flat_terminated | flat_truncated
 
-        def _step(i):
-            env = self.envs[i]
-            action_dict = {
-                "p1": int(actions[2 * i]),
-                "p2": int(actions[2 * i + 1]),
-            }
-            obs, rewards, terminateds, truncateds, _ = env.step(action_dict)
-            done = terminateds["p1"] or truncateds["p1"]
-            if done:
-                obs, _ = env.reset()
-            return i, obs, rewards, terminateds, truncateds, done
+        # Track episode stats
+        self._episode_returns += flat_rewards
+        self._episode_lengths += 1
 
-        for i, obs, rewards, terminateds, truncateds, done in self._pool.map(
-            _step, range(self.num_game_instances)
-        ):
-            for j, agent in enumerate(self.agents):
-                slot = 2 * i + j
-                all_obs[slot] = obs[agent]
-                all_rewards[slot] = rewards[agent]
-                all_terminated[slot] = terminateds.get(agent, False)
-                all_truncated[slot] = truncateds.get(agent, False)
-
-                # Track cumulative episode stats
-                self._episode_returns[slot] += rewards[agent]
-                self._episode_lengths[slot] += 1
-
-                if done:
-                    final_infos[slot] = {
-                        "episode": {
-                            "r": self._episode_returns[slot],
-                            "l": self._episode_lengths[slot],
-                        }
+        infos = {}
+        if flat_done.any():
+            final_infos = [None] * self.num_envs
+            for slot in np.where(flat_done)[0]:
+                final_infos[slot] = {
+                    "episode": {
+                        "r": self._episode_returns[slot],
+                        "l": self._episode_lengths[slot],
                     }
-                    self._episode_returns[slot] = 0.0
-                    self._episode_lengths[slot] = 0
+                }
+            infos["final_info"] = final_infos
+            # Reset counters for done slots
+            self._episode_returns[flat_done] = 0.0
+            self._episode_lengths[flat_done] = 0
 
-        if any(f is not None for f in final_infos):
-            all_infos["final_info"] = final_infos
-
-        return all_obs, all_rewards, all_terminated, all_truncated, all_infos
+        return (
+            flat_obs,
+            flat_rewards,
+            flat_terminated,
+            flat_truncated,
+            infos,
+        )
 
     def close(self):
-        self._pool.shutdown(wait=False)
-        for env in self.envs:
-            env.close()
+        self.env.close()
 
 
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
@@ -190,7 +168,8 @@ class Agent(nn.Module):
             nn.ReLU(),
         )
         self.actor = layer_init(
-            nn.Linear(hidden_size, envs.single_action_space.n), std=0.01
+            nn.Linear(hidden_size, envs.single_action_space.n),
+            std=0.01,
         )
         self.critic = layer_init(nn.Linear(hidden_size, 1), std=1)
 
@@ -212,77 +191,51 @@ class Agent(nn.Module):
 
 
 @torch.no_grad()
-def evaluate_vs_random(agent, eval_envs, device, num_episodes):
-    """Play the agent (as p1) vs random (p2) across parallel envs.
+def evaluate_vs_random(agent, eval_env, device, num_episodes):
+    """Play the agent (as p1) vs random (p2) using a vectorized env.
 
-    Runs episodes across all eval_envs concurrently until num_episodes
-    are completed. Returns win/loss/tie rates and mean episode length.
+    Runs until num_episodes are completed. Returns win/loss/tie rates
+    and mean episode length.
     """
-    n = len(eval_envs)
-    num_actions = eval_envs[0].action_space("p2").n
-    pool = concurrent.futures.ThreadPoolExecutor(max_workers=n)
+    N = eval_env.num_envs  # game instances
+    num_actions = eval_env.action_space("p1").n
 
     wins, losses, ties = 0, 0, 0
     total_length = 0
     episodes_done = 0
 
-    # Reset all envs in parallel
-    def _reset(i):
-        return i, eval_envs[i].reset()
-
-    all_obs = [None] * n
-    active = [True] * n
-    for i, (obs, _) in pool.map(_reset, range(n)):
-        all_obs[i] = obs
+    obs, _ = eval_env.reset()
+    ep_lengths = np.zeros(N, dtype=np.int64)
 
     while episodes_done < num_episodes:
-        # Batch inference for all active envs
-        active_indices = [i for i in range(n) if active[i]]
-        if not active_indices:
-            break
+        ep_lengths += 1
 
-        p1_obs_batch = torch.Tensor(
-            np.stack([all_obs[i]["p1"] for i in active_indices])
-        ).to(device)
-        p1_actions, _, _, _ = agent.get_action_and_value(p1_obs_batch)
+        # Agent policy for p1
+        p1_obs = torch.Tensor(obs["p1"]).to(device)
+        p1_actions, _, _, _ = agent.get_action_and_value(p1_obs)
         p1_actions = p1_actions.cpu().numpy()
 
-        # Build action dicts
-        action_dicts = {}
-        for idx, i in enumerate(active_indices):
-            action_dicts[i] = {
-                "p1": int(p1_actions[idx]),
-                "p2": np.random.randint(num_actions),
-            }
+        # Random policy for p2
+        p2_actions = np.random.randint(num_actions, size=N)
 
-        # Step all active envs in parallel
-        def _step(i):
-            obs, rewards, terminateds, truncateds, _ = eval_envs[i].step(
-                action_dicts[i]
-            )
-            done = terminateds["p1"] or truncateds["p1"]
-            return i, obs, rewards, done, eval_envs[i].t
+        action_dict = {"p1": p1_actions, "p2": p2_actions}
+        obs, rewards, terminateds, truncateds, _ = eval_env.step(action_dict)
 
-        for i, obs, rewards, done, ep_len in pool.map(_step, active_indices):
-            if done:
-                episodes_done += 1
-                total_length += ep_len
-                if rewards["p1"] > 0:
-                    wins += 1
-                elif rewards["p1"] < 0:
-                    losses += 1
-                else:
-                    ties += 1
-
-                if episodes_done >= num_episodes:
-                    active[i] = False
-                else:
-                    # Reset and continue
-                    all_obs[i], _ = eval_envs[i].reset()
+        done = terminateds["p1"] | truncateds["p1"]
+        for i in np.where(done)[0]:
+            if episodes_done >= num_episodes:
+                break
+            episodes_done += 1
+            total_length += ep_lengths[i]
+            r = rewards["p1"][i]
+            if r > 0:
+                wins += 1
+            elif r < 0:
+                losses += 1
             else:
-                all_obs[i] = obs
+                ties += 1
+            ep_lengths[i] = 0
 
-    pool.shutdown(wait=False)
     return {
         "eval/win_rate_vs_random": wins / num_episodes,
         "eval/loss_rate_vs_random": losses / num_episodes,
@@ -311,21 +264,25 @@ def train():
         "cuda" if torch.cuda.is_available() and config["cuda"] else "cpu"
     )
 
-    # Env setup
-    # Each game instance has 2 agents (p1, p2), flattened into num_envs VecEnv slots.
+    # Env setup — single server with N vectorized game instances
     assert (
         num_envs % 2 == 0
     ), "num_envs must be even (2 agents per game instance)"
     num_game_instances = num_envs // 2
     envs = FootsiesVecEnv(num_game_instances)
-    eval_envs = [make_env() for _ in range(config["num_eval_envs"])]
+
+    # Eval env — single vectorized env, uses PettingZoo dict API directly
+    eval_env = make_vec_env(config["num_eval_envs"])
+
     assert isinstance(
         envs.single_action_space, gym.spaces.Discrete
     ), "only discrete action space is supported"
 
     agent = Agent(envs, hidden_size=config["hidden_size"]).to(device)
     optimizer = optim.Adam(
-        agent.parameters(), lr=config["learning_rate"], eps=1e-5
+        agent.parameters(),
+        lr=config["learning_rate"],
+        eps=1e-5,
     )
 
     # Storage setup
@@ -349,12 +306,21 @@ def train():
     num_updates = config["total_timesteps"] // batch_size
 
     try:
+        # Initial evaluation before any training
+        eval_metrics = evaluate_vs_random(
+            agent, eval_env, device, config["eval_episodes"]
+        )
+        eval_metrics["global_step"] = 0
+        wandb.log(eval_metrics)
+        print(
+            f"  initial eval win_rate_vs_random="
+            f"{eval_metrics['eval/win_rate_vs_random']:.2f}"
+        )
+
         for update in range(1, num_updates + 1):
             frac = 1.0 - (update - 1.0) / num_updates
             if config["anneal_lr"]:
-                optimizer.param_groups[0]["lr"] = (
-                    frac * config["learning_rate"]
-                )
+                optimizer.param_groups[0]["lr"] = frac * config["learning_rate"]
             ent_coef = (
                 config["ent_coef"] * frac
                 if config["anneal_ent"]
@@ -374,36 +340,39 @@ def train():
                 actions[step] = action
                 logprobs[step] = logprob
 
-                next_obs, reward, terminated, truncated, infos = envs.step(
-                    action.cpu().numpy()
-                )
+                (
+                    next_obs,
+                    reward,
+                    terminated,
+                    truncated,
+                    infos,
+                ) = envs.step(action.cpu().numpy())
                 done = np.logical_or(terminated, truncated)
                 rewards[step] = torch.tensor(reward).to(device).view(-1)
-                next_obs, next_done = torch.Tensor(next_obs).to(
-                    device
-                ), torch.Tensor(done).to(device)
+                next_obs, next_done = (
+                    torch.Tensor(next_obs).to(device),
+                    torch.Tensor(done).to(device),
+                )
 
                 if "final_info" in infos:
                     for idx, info in enumerate(infos["final_info"]):
                         if info is None:
                             continue
                         if "episode" in info:
-                            player_idx = idx % 2
+                            player = "p1" if idx < num_game_instances else "p2"
                             print(
-                                f"global_step={global_step}, p{player_idx+1}-episodic_return={info['episode']['r']:.2f}"
+                                f"global_step={global_step}, "
+                                f"{player}-episodic_return="
+                                f"{info['episode']['r']:.2f}"
                             )
                             wandb.log(
                                 {
-                                    f"charts/episodic_return-p{player_idx+1}": info[
+                                    f"charts/episodic_return-{player}": info[
                                         "episode"
-                                    ][
-                                        "r"
-                                    ],
-                                    f"charts/episodic_length-p{player_idx+1}": info[
+                                    ]["r"],
+                                    f"charts/episodic_length-{player}": info[
                                         "episode"
-                                    ][
-                                        "l"
-                                    ],
+                                    ]["l"],
                                     "global_step": global_step,
                                 }
                             )
@@ -453,7 +422,8 @@ def train():
 
                     _, newlogprob, entropy, newvalue = (
                         agent.get_action_and_value(
-                            b_obs[mb_inds], b_actions.long()[mb_inds]
+                            b_obs[mb_inds],
+                            b_actions.long()[mb_inds],
                         )
                     )
                     logratio = newlogprob - b_logprobs[mb_inds]
@@ -478,7 +448,9 @@ def train():
                     # Policy loss
                     pg_loss1 = -mb_advantages * ratio
                     pg_loss2 = -mb_advantages * torch.clamp(
-                        ratio, 1 - config["clip_coef"], 1 + config["clip_coef"]
+                        ratio,
+                        1 - config["clip_coef"],
+                        1 + config["clip_coef"],
                     )
                     pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
@@ -492,9 +464,7 @@ def train():
                             config["clip_coef"],
                         )
                         v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
-                        v_loss_max = torch.max(
-                            v_loss_unclipped, v_loss_clipped
-                        )
+                        v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
                         v_loss = 0.5 * v_loss_max.mean()
                     else:
                         v_loss = (
@@ -511,7 +481,8 @@ def train():
                     optimizer.zero_grad()
                     loss.backward()
                     nn.utils.clip_grad_norm_(
-                        agent.parameters(), config["max_grad_norm"]
+                        agent.parameters(),
+                        config["max_grad_norm"],
                     )
                     optimizer.step()
 
@@ -519,7 +490,10 @@ def train():
                     if approx_kl > config["target_kl"]:
                         break
 
-            y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
+            y_pred, y_true = (
+                b_values.cpu().numpy(),
+                b_returns.cpu().numpy(),
+            )
             var_y = np.var(y_true)
             explained_var = (
                 np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
@@ -535,29 +509,33 @@ def train():
                     "losses/approx_kl": approx_kl.item(),
                     "losses/clipfrac": np.mean(clipfracs),
                     "losses/explained_variance": explained_var,
-                    "charts/SPS": int(
-                        global_step / (time.time() - start_time)
-                    ),
+                    "charts/SPS": int(global_step / (time.time() - start_time)),
                     "global_step": global_step,
                 }
             )
-            print("SPS:", int(global_step / (time.time() - start_time)))
+            print(
+                "SPS:",
+                int(global_step / (time.time() - start_time)),
+            )
 
             # Evaluation vs random
             if update % config["eval_interval"] == 0 or update == num_updates:
                 eval_metrics = evaluate_vs_random(
-                    agent, eval_envs, device, config["eval_episodes"]
+                    agent,
+                    eval_env,
+                    device,
+                    config["eval_episodes"],
                 )
                 eval_metrics["global_step"] = global_step
                 wandb.log(eval_metrics)
                 print(
-                    f"  eval win_rate_vs_random={eval_metrics['eval/win_rate_vs_random']:.2f}"
+                    f"  eval win_rate_vs_random="
+                    f"{eval_metrics['eval/win_rate_vs_random']:.2f}"
                 )
 
     finally:
         envs.close()
-        for ev in eval_envs:
-            ev.close()
+        eval_env.close()
         run.finish()
 
 

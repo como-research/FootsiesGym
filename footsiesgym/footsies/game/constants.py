@@ -1,5 +1,7 @@
 import dataclasses
 
+import numpy as np
+
 
 @dataclasses.dataclass
 class EnvActions:
@@ -91,3 +93,49 @@ FOOTSIES_ACTION_IDS = {
     "DEAD": ActionID.DEAD,
     "WIN": ActionID.WIN,
 }
+
+
+# ── Vectorized lookup tables (numpy) ──────────────────────────────
+# Indexed by EnvActions (0-6). Output is ActionBits for gRPC.
+# P1 faces right: BACK→LEFT, FORWARD→RIGHT
+P1_ENV_TO_BITS = np.array(
+    [
+        ActionBits.NONE,  # NONE
+        ActionBits.LEFT,  # BACK
+        ActionBits.RIGHT,  # FORWARD
+        ActionBits.ATTACK,  # ATTACK
+        ActionBits.LEFT_ATTACK,  # BACK_ATTACK
+        ActionBits.RIGHT_ATTACK,  # FORWARD_ATTACK
+        ActionBits.ATTACK,  # SPECIAL_CHARGE (shouldn't reach here)
+    ],
+    dtype=np.int64,
+)
+
+# P2 faces left: BACK→RIGHT, FORWARD→LEFT
+P2_ENV_TO_BITS = np.array(
+    [
+        ActionBits.NONE,  # NONE
+        ActionBits.RIGHT,  # BACK
+        ActionBits.LEFT,  # FORWARD
+        ActionBits.ATTACK,  # ATTACK
+        ActionBits.RIGHT_ATTACK,  # BACK_ATTACK
+        ActionBits.LEFT_ATTACK,  # FORWARD_ATTACK
+        ActionBits.ATTACK,  # SPECIAL_CHARGE (shouldn't reach here)
+    ],
+    dtype=np.int64,
+)
+
+# EnvAction → charge variant (while holding special)
+# BACK→BACK_ATTACK, FORWARD→FORWARD_ATTACK, everything else→ATTACK
+CHARGE_ACTION_LUT = np.array(
+    [
+        EnvActions.ATTACK,  # NONE → ATTACK
+        EnvActions.BACK_ATTACK,  # BACK → BACK_ATTACK
+        EnvActions.FORWARD_ATTACK,  # FORWARD → FORWARD_ATTACK
+        EnvActions.ATTACK,  # ATTACK → ATTACK
+        EnvActions.BACK_ATTACK,  # BACK_ATTACK → BACK_ATTACK
+        EnvActions.FORWARD_ATTACK,  # FORWARD_ATTACK → FORWARD_ATTACK
+        EnvActions.ATTACK,  # SPECIAL_CHARGE → ATTACK
+    ],
+    dtype=np.int64,
+)

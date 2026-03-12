@@ -18,6 +18,7 @@ if sys.platform == "win32":
     def _flock(fd):
         """Acquire an exclusive lock on the file descriptor (Windows)."""
         msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
+
 else:
     import fcntl
 
@@ -39,16 +40,16 @@ class BinaryManager:
     ]
 
     BINARY_FILES = {
-        "footsies_linux_headless_c1a9177.zip": "footsies_linux_headless_c1a9177.zip",
-        "footsies_linux_windowed_c1a9177.zip": "footsies_linux_windowed_c1a9177.zip",
+        "footsies_linux_headless_9c6b36f.zip": "footsies_linux_headless_9c6b36f.zip",
+        "footsies_linux_windowed_9c6b36f.zip": "footsies_linux_windowed_9c6b36f.zip",
         "footsies_mac_headless_5709b6d.zip": "footsies_mac_headless_5709b6d.zip",
         "footsies_mac_windowed_5709b6d.zip": "footsies_mac_windowed_5709b6d.zip",
     }
 
     # SHA256 hashes for integrity verification
     BINARY_HASHES = {
-        "footsies_linux_headless_c1a9177.zip": "4222b21914da7d45c2279388c033e99c2ef60489de88ec97540a61b9d3263f58",
-        "footsies_linux_windowed_c1a9177.zip": "39e6d588b8ab2f1ebbcd6ab51224ca9d191e35344b48c6445ab3776bcec4b51f",
+        "footsies_linux_headless_9c6b36f.zip": "1224a165bce03272e4a01809ed00280cb61b9d0426500e8eb5a72d5692b0a5d1",
+        "footsies_linux_windowed_9c6b36f.zip": "c0b6d3510b9f498dabdb93bbe2abee9dfe3da7e62b657a6fa732f0efbfcd5cce",
         "footsies_mac_headless_5709b6d.zip": "7d4c931a7ace0fa34d518959713e4add7e44e4e0f128c62e8b57a9b5a052104a",
         "footsies_mac_windowed_5709b6d.zip": "658b3b3fc37e4e5cfb92f72799aa22ce92320957b2cac668fc7a2765deb45073",
     }
@@ -157,9 +158,7 @@ class BinaryManager:
             if headless
             else "footsies_binaries_windowed"
         )
-        binary_path = os.path.join(
-            target_dir, binary_subdir, "footsies.x86_64"
-        )
+        binary_path = os.path.join(target_dir, binary_subdir, "footsies.x86_64")
 
         # Check if extracted binaries already exist
         if os.path.exists(binary_path):
@@ -196,9 +195,9 @@ class BinaryManager:
                 # Get the appropriate zip file
                 if platform.lower() == "linux":
                     zip_filename = (
-                        "footsies_linux_headless_c1a9177.zip"
+                        "footsies_linux_headless_9c6b36f.zip"
                         if headless
-                        else "footsies_linux_windowed_c1a9177.zip"
+                        else "footsies_linux_windowed_9c6b36f.zip"
                     )
                 else:
                     zip_filename = (
@@ -284,8 +283,8 @@ class BinaryManager:
         """Get the list of required binary files for a platform."""
         if platform.lower() == "linux":
             return [
-                "footsies_linux_headless_c1a9177.zip",
-                "footsies_linux_windowed_c1a9177.zip",
+                "footsies_linux_headless_9c6b36f.zip",
+                "footsies_linux_windowed_9c6b36f.zip",
             ]
         elif platform.lower() == "mac":
             return [
@@ -426,9 +425,9 @@ class BinaryManager:
         """
         if platform.lower() == "linux":
             filename = (
-                "footsies_linux_windowed_c1a9177.zip"
+                "footsies_linux_windowed_9c6b36f.zip"
                 if windowed
-                else "footsies_linux_headless_c1a9177.zip"
+                else "footsies_linux_headless_9c6b36f.zip"
             )
         elif platform.lower() == "mac":
             filename = (

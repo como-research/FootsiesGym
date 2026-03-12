@@ -1,4 +1,10 @@
-program: experimentation/experiments/cleanrl/train_ppo.py
+program: train_ppo.py
+command:
+  - ${env}
+  - python
+  - -m
+  - experimentation.experiments.cleanrl.train_ppo
+  - ${args}
 method: bayes
 metric:
   name: eval/win_rate_vs_random
@@ -55,6 +61,13 @@ parameters:
     values:
       - true
       - false
+  num_steps:
+    values:
+      - 128
+      - 256
+      - 512
+      - 1024
+      - 2048
   # Network
   hidden_size:
     values:

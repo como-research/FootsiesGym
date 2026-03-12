@@ -29,7 +29,7 @@ def test_observation_spaces(env):
     for agent in env.possible_agents:
         space = env.observation_space(agent)
         assert space is not None
-        assert space.shape == (env.encoder.observation_size,)
+        assert space.shape == (env._encoder.observation_size,)
 
 
 @pytest.mark.slow
