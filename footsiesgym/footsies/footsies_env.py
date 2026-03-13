@@ -632,12 +632,11 @@ class FootsiesEnv(ParallelEnv):
         # ── Auto-reset done envs ──────────────────────────────
         done = terminated | truncated
         if done.any():
-            # Server auto-resets on KO. For truncated-only envs
-            # (not terminated), we need to explicitly reset.
-            trunc_only = truncated & ~terminated
-            if trunc_only.any():
-                self.vec_game.batch_reset(trunc_only)
-
+            # Explicitly reset all done envs. The server
+            # auto-resets on KO at the next step, but that
+            # skips a clean post-reset state. Calling Reset()
+            # twice is idempotent so this is safe.
+            self.vec_game.batch_reset(done)
             self._reset_vec_env_state(done)
 
         rewards = {"p1": p1_rewards, "p2": p2_rewards}
