@@ -2,35 +2,56 @@
 Binary manager for FootsiesGym - handles automatic binary downloads.
 """
 
-import fcntl
+import hashlib
 import os
 import shutil
+import sys
 import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
 from typing import Optional
 
+if sys.platform == "win32":
+    import msvcrt
+
+    def _flock(fd):
+        """Acquire an exclusive lock on the file descriptor (Windows)."""
+        msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
+
+else:
+    import fcntl
+
+    def _flock(fd):
+        """Acquire an exclusive lock on the file descriptor (Unix)."""
+        fcntl.flock(fd, fcntl.LOCK_EX)
+
 
 class BinaryManager:
     """Manages automatic downloading and caching of FootsiesGym binaries."""
 
-    # Direct download URLs for binary files
-    # Using GitHub raw files as the primary source
-    DOWNLOAD_BASE_URL = (
-        "https://github.com/chasemcd/FootsiesGym/raw/main/binaries"
-    )
+    # Primary download URL (Cloudflare R2 bucket)
+    DOWNLOAD_BASE_URL = "https://footsiesgym.chasemcd.com/v0.7.0"
 
     # Fallback URLs in case primary fails
     FALLBACK_URLS = [
+        "https://github.com/chasemcd/FootsiesGym/raw/main/binaries",
         "https://raw.githubusercontent.com/chasemcd/FootsiesGym/main/binaries",
     ]
 
     BINARY_FILES = {
-        "footsies_linux_server_021725.zip": "footsies_linux_server_021725.zip",
-        "footsies_linux_windowed_021725.zip": "footsies_linux_windowed_021725.zip",
+        "footsies_linux_headless_9c6b36f.zip": "footsies_linux_headless_9c6b36f.zip",
+        "footsies_linux_windowed_9c6b36f.zip": "footsies_linux_windowed_9c6b36f.zip",
         "footsies_mac_headless_5709b6d.zip": "footsies_mac_headless_5709b6d.zip",
         "footsies_mac_windowed_5709b6d.zip": "footsies_mac_windowed_5709b6d.zip",
+    }
+
+    # SHA256 hashes for integrity verification
+    BINARY_HASHES = {
+        "footsies_linux_headless_9c6b36f.zip": "1224a165bce03272e4a01809ed00280cb61b9d0426500e8eb5a72d5692b0a5d1",
+        "footsies_linux_windowed_9c6b36f.zip": "c0b6d3510b9f498dabdb93bbe2abee9dfe3da7e62b657a6fa732f0efbfcd5cce",
+        "footsies_mac_headless_5709b6d.zip": "7d4c931a7ace0fa34d518959713e4add7e44e4e0f128c62e8b57a9b5a052104a",
+        "footsies_mac_windowed_5709b6d.zip": "658b3b3fc37e4e5cfb92f72799aa22ce92320957b2cac668fc7a2765deb45073",
     }
 
     def __init__(self):
@@ -71,7 +92,7 @@ class BinaryManager:
             # Create lock file and acquire exclusive lock
             with open(lock_file, "w") as lock_fd:
                 print(f"🔒 Acquiring download lock for {platform} binaries...")
-                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
+                _flock(lock_fd.fileno())
 
                 # Re-check if files exist after acquiring lock (another process might have downloaded them)
                 missing_files = []
@@ -137,9 +158,7 @@ class BinaryManager:
             if headless
             else "footsies_binaries_windowed"
         )
-        binary_path = os.path.join(
-            target_dir, binary_subdir, "footsies.x86_64"
-        )
+        binary_path = os.path.join(target_dir, binary_subdir, "footsies.x86_64")
 
         # Check if extracted binaries already exist
         if os.path.exists(binary_path):
@@ -158,7 +177,7 @@ class BinaryManager:
                 print(
                     f"🔒 Acquiring extraction lock for {platform} binaries..."
                 )
-                fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
+                _flock(lock_fd.fileno())
 
                 # Re-check if extracted binaries exist after acquiring lock
                 if os.path.exists(binary_path):
@@ -176,9 +195,9 @@ class BinaryManager:
                 # Get the appropriate zip file
                 if platform.lower() == "linux":
                     zip_filename = (
-                        "footsies_linux_server_021725.zip"
+                        "footsies_linux_headless_9c6b36f.zip"
                         if headless
-                        else "footsies_linux_windowed_021725.zip"
+                        else "footsies_linux_windowed_9c6b36f.zip"
                     )
                 else:
                     zip_filename = (
@@ -264,8 +283,8 @@ class BinaryManager:
         """Get the list of required binary files for a platform."""
         if platform.lower() == "linux":
             return [
-                "footsies_linux_server_021725.zip",
-                "footsies_linux_windowed_021725.zip",
+                "footsies_linux_headless_9c6b36f.zip",
+                "footsies_linux_windowed_9c6b36f.zip",
             ]
         elif platform.lower() == "mac":
             return [
@@ -274,6 +293,42 @@ class BinaryManager:
             ]
         else:
             return []
+
+    def _verify_hash(self, filename: str) -> bool:
+        """
+        Verify the SHA256 hash of a downloaded binary file.
+
+        Args:
+            filename: Name of the file to verify
+
+        Returns:
+            bool: True if hash matches or no hash is registered, False on mismatch
+        """
+        expected_hash = self.BINARY_HASHES.get(filename)
+        if expected_hash is None:
+            return True
+
+        file_path = self.binaries_dir / filename
+        sha256 = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            while True:
+                chunk = f.read(8192)
+                if not chunk:
+                    break
+                sha256.update(chunk)
+
+        actual_hash = sha256.hexdigest()
+        if actual_hash != expected_hash:
+            print(
+                f"  ❌ Hash mismatch for {filename}:\n"
+                f"     expected {expected_hash}\n"
+                f"     got      {actual_hash}"
+            )
+            file_path.unlink(missing_ok=True)
+            return False
+
+        print(f"  ✅ Hash verified for {filename}")
+        return True
 
     def _download_binary(self, filename: str) -> bool:
         """
@@ -302,6 +357,8 @@ class BinaryManager:
                 print(
                     f"  ✅ Copied {filename} ({local_path.stat().st_size} bytes)"
                 )
+                if not self._verify_hash(filename):
+                    return False
                 return True
             except Exception as e:
                 print(f"  ❌ Failed to copy from local repository: {e}")
@@ -317,7 +374,7 @@ class BinaryManager:
 
                 # Create request with user agent to avoid blocking
                 request = urllib.request.Request(url)
-                request.add_header("User-Agent", "FootsiesGym/0.5.0")
+                request.add_header("User-Agent", "FootsiesGym/0.7.0")
 
                 with urllib.request.urlopen(request, timeout=30) as response:
                     # Check if we got a valid response
@@ -333,6 +390,8 @@ class BinaryManager:
                         print(
                             f"  ✅ Downloaded {filename} ({local_path.stat().st_size} bytes)"
                         )
+                        if not self._verify_hash(filename):
+                            continue
                         return True
                     else:
                         print(f"  ❌ HTTP {response.status} from {base_url}")
@@ -366,9 +425,9 @@ class BinaryManager:
         """
         if platform.lower() == "linux":
             filename = (
-                "footsies_linux_windowed_021725.zip"
+                "footsies_linux_windowed_9c6b36f.zip"
                 if windowed
-                else "footsies_linux_server_021725.zip"
+                else "footsies_linux_headless_9c6b36f.zip"
             )
         elif platform.lower() == "mac":
             filename = (
