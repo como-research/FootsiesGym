@@ -51,7 +51,7 @@ ENV_CONFIG = {
     "frame_skip": 4,
     "action_delay": 16,
     "max_t": 4000,
-    "use_special_charge_action": True,
+    "use_special_charge_action": False,
     "win_reward_scaling_coeff": 10.0,
     "guard_break_reward": 0.0,
     "headless": True,

@@ -118,7 +118,7 @@ class Experiment:
             shape=(encoder.FootsiesEncoder.observation_size,),
         )
         policy_action_space = footsies_env.FootsiesEnv.get_action_space(
-            use_special_charge_action=True
+            use_special_charge_action=False
         )["p1"]
 
         # Add policy names stored in the ModuleRepository here to evaluate against them
@@ -138,7 +138,7 @@ class Experiment:
                     "use_reward_budget": False,
                     "launch_binaries": True,
                     "return_fight_state_in_infos": True,
-                    "use_special_charge_action": True,
+                    "use_special_charge_action": False,
                 },
             )
             .api_stack(
@@ -296,9 +296,7 @@ class Experiment:
             env_creator=self.env_creator,
         )
 
-        ray.tune.registry.register_trainable(
-            "EMAgnetAPPO", emagnet.EMAgnetAPPO
-        )
+        ray.tune.registry.register_trainable("EMAgnetAPPO", emagnet.EMAgnetAPPO)
 
         experiment_name = self.config.get("experiment_name")
         results_path = os.path.expanduser(f"~/ray_results/{experiment_name}")

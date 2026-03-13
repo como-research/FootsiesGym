@@ -31,7 +31,9 @@ def make(
         config: Configuration dictionary for the environment
         platform: Platform to run on (currently only "linux" supported for auto-launch)
         launch_binaries: Whether to automatically launch game binaries
-        rllib: If True, wrap the environment for RLlib (requires ray[rllib])
+        rllib: If True, wrap the environment for RLlib (requires ray[rllib]).
+            For vectorized mode (num_envs > 1), uses VectorizedFootsiesRLlibEnv.
+            For single-env mode, uses ParallelPettingZooEnv wrapper.
 
     Returns:
         A FootsiesEnv (PettingZoo ParallelEnv), or an RLlib MultiAgentEnv if rllib=True.
@@ -50,6 +52,13 @@ def make(
 
     if config is not None:
         default_config.update(config)
+
+    if rllib and default_config.get("num_envs", 1) > 1:
+        from footsiesgym.wrappers import (
+            VectorizedFootsiesRLlibEnv,
+        )
+
+        return VectorizedFootsiesRLlibEnv(default_config)
 
     env = FootsiesEnv(config=default_config)
 

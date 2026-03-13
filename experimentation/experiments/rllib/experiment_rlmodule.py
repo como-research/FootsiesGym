@@ -1,12 +1,8 @@
-import functools
-
 import ray
 from ray import air, tune
 from ray.air.integrations.wandb import WandbLoggerCallback
-from ray.rllib.algorithms import appo
-from ray.rllib.algorithms import callbacks as rllib_callbacks
+from ray.rllib.algorithms import ppo
 from ray.rllib.core.rl_module import multi_rl_module, rl_module
-from ray.rllib.env import multi_agent_env_runner
 from ray.rllib.examples.rl_modules.classes import random_rlm
 from ray.tune import CLIReporter
 from ray.tune.result import (
@@ -16,20 +12,26 @@ from ray.tune.result import (
     TIME_TOTAL_S,
     TIMESTEPS_TOTAL,
 )
+from ray.tune.search.hyperopt import HyperOptSearch
 
 import footsiesgym
 from experimentation.experiments.rllib import matchmaking
-from experimentation.experiments.rllib.callbacks import add_policies
-from experimentation.models.rl_modules import back, lstm_module, noop
+from experimentation.experiments.rllib.callbacks.winrates_v2 import (
+    WinratesV2,
+)
+from experimentation.models.rl_modules import back, noop
+from footsiesgym.rllib.env_runner import FootsiesEnvRunner
 
 eval_policies = []
+
+# Number of game instances per env runner (server-side vectorized)
+# GAMES_PER_RUNNER = 48
+TOTAL_ENV_STEPS = 50_000_000
 
 
 class Experiment:
     def __init__(self, config: dict | None = None):
-
         config = config or {}
-
         self.config = config
 
     def construct_run_config(self):
@@ -45,8 +47,11 @@ class Experiment:
 
         run_config = air.config.RunConfig(
             name=self.config["experiment_name"],
+            stop={
+                "learners/focal_policy/num_module_steps_trained_lifetime": TOTAL_ENV_STEPS
+            },
             callbacks=(
-                [WandbLoggerCallback(project="Footsies")]
+                [WandbLoggerCallback(project="Footsies-RLlib")]
                 if not self.config.get("debug", False)
                 else None
             ),
@@ -55,7 +60,7 @@ class Experiment:
                 fail_fast=self.config.get("fail_fast", False),
             ),
             checkpoint_config=air.config.CheckpointConfig(
-                checkpoint_frequency=self.config.get("checkpoint_freq", 50),
+                checkpoint_frequency=self.config.get("checkpoint_freq", 100),
                 checkpoint_at_end=True,
             ),
             progress_reporter=reporter,
@@ -64,23 +69,51 @@ class Experiment:
         return run_config
 
     def construct_tune_config(self):
-        tune_config = tune.TuneConfig(
-            num_samples=self.config.get("num_trials", 1),
-            max_concurrent_trials=self.config.get("max_concurrent_trials", 1),
-        )
+        if self.config.get("tune"):
+            tune_config = tune.TuneConfig(
+                num_samples=self.config.get("num_trials", 100),
+                max_concurrent_trials=self.config.get(
+                    "max_concurrent_trials", 4
+                ),
+                metric=(
+                    "evaluation/env_runners/module_episode_returns_mean/focal_policy"
+                ),
+                mode="max",
+                search_alg=HyperOptSearch(),
+                scheduler=tune.schedulers.ASHAScheduler(
+                    time_attr="learners/focal_policy/num_module_steps_trained_lifetime",
+                    max_t=TOTAL_ENV_STEPS,
+                    grace_period=TOTAL_ENV_STEPS // 10,
+                ),
+            )
+        else:
+            tune_config = tune.TuneConfig(
+                num_samples=self.config.get("num_trials", 100),
+                max_concurrent_trials=self.config.get(
+                    "max_concurrent_trials", 4
+                ),
+            )
         return tune_config
 
-    def construct_model_config(self, as_dict=True):
+    def construct_model_config(self):
+        num_runners = 1 if not self.config.get("debug", False) else 1
+        # games_per_runner = (
+        #     GAMES_PER_RUNNER if not self.config.get("debug", False) else 2
+        # )
 
         config = (
-            appo.APPOConfig()
+            ppo.PPOConfig()
             .environment(
                 "FootsiesEnv",
                 env_config={
                     "max_t": 4000,
                     "frame_skip": 4,
-                    "observation_delay": 16,
+                    "action_delay": 16,
+                    "guard_break_reward": 0.0,
+                    "win_reward_scaling_coeff": 10.0,
+                    "use_reward_budget": False,
                     "launch_binaries": True,
+                    "use_special_charge_action": False,
                 },
             )
             .framework("torch")
@@ -92,25 +125,20 @@ class Experiment:
                 num_learners=1,
                 num_cpus_per_learner=1,
                 num_gpus_per_learner=(
-                    1 if not self.config.get("debug", False) else 0
+                    0.25 if not self.config.get("debug", False) else 0
                 ),
-                num_aggregator_actors_per_learner=1,
             )
             .env_runners(
-                env_runner_cls=multi_agent_env_runner.MultiAgentEnvRunner,
-                num_env_runners=(
-                    40 if not self.config.get("debug", False) else 1
-                ),
+                env_runner_cls=FootsiesEnvRunner,
+                num_env_runners=num_runners,
                 num_cpus_per_env_runner=1,
-                num_envs_per_env_runner=1,
+                num_envs_per_env_runner=16,
+                create_env_on_local_worker=True,
                 batch_mode="truncate_episodes",
-                rollout_fragment_length=256,
-                episodes_to_numpy=False,
+                rollout_fragment_length="auto",
             )
             .training(
-                model={"uses_new_env_runners": True},
-                lr=3e-4,
-                entropy_coeff=0.01,
+                **self._training_params(),
             )
             .multi_agent(
                 policies={
@@ -119,9 +147,14 @@ class Experiment:
                     "noop",
                     "back",
                 },
-                # policy_mapping_fn=lambda agent_id, episode, **kwargs: "focal_policy",
                 policy_mapping_fn=matchmaking.Matchmaker(
-                    [matchmaking.Matchup("focal_policy", "focal_policy", 1.0)]
+                    [
+                        matchmaking.Matchup(
+                            "focal_policy",
+                            "focal_policy",
+                            1.0,
+                        )
+                    ]
                 ).policy_mapping_fn,
                 policies_to_train=["focal_policy"],
             )
@@ -129,31 +162,29 @@ class Experiment:
                 rl_module_spec=multi_rl_module.MultiRLModuleSpec(
                     rl_module_specs={
                         "focal_policy": rl_module.RLModuleSpec(
-                            module_class=lstm_module.LSTMModule,
                             model_config={
-                                "lstm_cell_size": 32,
-                                "dense_layers": [128, 128],
-                                "max_seq_len": 32,
+                                "fcnet_hiddens": [256, 256],
+                                "fcnet_activation": "relu",
                             },
                         ),
                         "random": rl_module.RLModuleSpec(
-                            module_class=random_rlm.RandomRLModule
+                            module_class=random_rlm.RandomRLModule,
                         ),
                         "noop": rl_module.RLModuleSpec(
-                            module_class=noop.NoOpRLModule
+                            module_class=noop.NoOpRLModule,
                         ),
                         "back": rl_module.RLModuleSpec(
-                            module_class=back.BackRLModule
+                            module_class=back.BackRLModule,
                         ),
                     },
                 )
             )
             .evaluation(
                 evaluation_num_env_runners=(
-                    5 if not self.config.get("debug", False) else 1
+                    4 if not self.config.get("debug", False) else 1
                 ),
                 evaluation_interval=1,
-                evaluation_duration="auto",
+                evaluation_duration=512,
                 evaluation_duration_unit="episodes",
                 evaluation_parallel_to_training=True,
                 evaluation_config={
@@ -163,28 +194,74 @@ class Experiment:
                             [
                                 matchmaking.Matchup(
                                     "focal_policy",
-                                    eval_policy,
+                                    ep,
                                     1 / (len(eval_policies) + 3),
                                 )
-                                for eval_policy in eval_policies
+                                for ep in eval_policies
                                 + ["random", "back", "noop"]
                             ]
                         ).policy_mapping_fn,
                     },
                 },
             )
-            .callbacks(
-                rllib_callbacks.make_multi_callbacks(
-                    [
-                        functools.partial(
-                            add_policies.AddPolicies, policies=eval_policies
-                        ),
-                    ]
-                )
-            )
+            .callbacks(callbacks_class=WinratesV2)
         )
 
         return config
+
+    def _training_params(self):
+        if self.config.get("tune"):
+            return dict(
+                train_batch_size=tune.choice(
+                    [
+                        4_096,
+                        16_384,
+                        32_768,
+                        65_536,
+                    ]
+                ),
+                minibatch_size=tune.choice([256, 1024, 2048, 4096]),
+                lr=tune.choice(
+                    [
+                        [[0, 0.003], [TOTAL_ENV_STEPS, 0]],
+                        [[0, 0.001], [TOTAL_ENV_STEPS, 0]],
+                        [[0, 0.0003], [TOTAL_ENV_STEPS, 0]],
+                        [[0, 0.0005], [TOTAL_ENV_STEPS, 0]],
+                        [[0, 0.0001], [TOTAL_ENV_STEPS, 0]],
+                        1e-3,
+                        3e-4,
+                        5e-5,
+                        1e-5,
+                    ]
+                ),
+                entropy_coeff=tune.choice(
+                    [
+                        [[0, 0.01], [TOTAL_ENV_STEPS, 0]],
+                        [[0, 0.03], [TOTAL_ENV_STEPS, 0]],
+                        [[0, 0.05], [TOTAL_ENV_STEPS, 0]],
+                        [[0, 0.1], [TOTAL_ENV_STEPS, 0]],
+                        [[0, 0.5], [TOTAL_ENV_STEPS, 0]],
+                        0.005,
+                        0.01,
+                        0.03,
+                        0.05,
+                        0.1,
+                        0.5,
+                    ]
+                ),
+                gamma=tune.choice([0.99, 0.995]),
+                vf_loss_coeff=tune.choice([0.5, 1.0]),
+                lambda_=tune.choice([0.8, 0.9, 0.95]),
+            )
+        return dict(
+            train_batch_size=256 * 48,
+            minibatch_size=2048,
+            lr=[[0, 0.001], [TOTAL_ENV_STEPS, 0]],
+            entropy_coeff=0.01,
+            gamma=0.995,
+            vf_loss_coeff=1.0,
+            lambda_=0.95,
+        )
 
     def env_creator(self, config, **kwargs):
         return footsiesgym.make(config=config, rllib=True)
@@ -204,7 +281,7 @@ class Experiment:
         run_config = self.construct_run_config()
 
         tuner = tune.Tuner(
-            trainable=appo.APPO,
+            trainable=ppo.PPO,
             param_space=model_config,
             tune_config=tune_config,
             run_config=run_config,

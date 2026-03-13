@@ -7,7 +7,7 @@ from ray.rllib.core import rl_module
 from ray.rllib.policy import sample_batch
 from ray.rllib.utils.spaces.space_utils import batch as batch_func
 
-from footsies.game import constants as footsies_constants
+from footsiesgym.footsies.game import constants as footsies_constants
 
 
 class NoOpRLModule(rl_module.RLModule):
