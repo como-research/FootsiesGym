@@ -102,10 +102,19 @@ class FootsiesGame:
 
     @staticmethod
     def action_to_bits(action: int, is_player_1: bool) -> int:
-        """Converts an action to its corresponding bit representation."""
+        """Converts a base EnvAction (0-5) to ActionBits for gRPC.
 
+        Special charge actions (6-8) must be resolved to base
+        actions before calling this method.
+        """
         if isinstance(action, np.ndarray):
             action = action.item()
+
+        assert action <= constants.EnvActions.FORWARD_ATTACK, (
+            f"Only base actions (0-5) should reach the server, "
+            f"got {action}. Special charge actions must be "
+            f"resolved in Python before sending to gRPC."
+        )
 
         if is_player_1:
             if action == constants.EnvActions.BACK:
