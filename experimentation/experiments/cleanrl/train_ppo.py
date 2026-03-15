@@ -23,19 +23,19 @@ DEFAULT_CONFIG = {
     "cuda": True,
     # PPO
     "total_timesteps": 10_000_000,
-    "learning_rate": 6e-4,
+    "learning_rate": 0.001,
     "num_envs": 96,  # agent slots (2 per game instance)
     "num_steps": 2048,  # steps per rollout per env
-    "anneal_lr": False,
+    "anneal_lr": True,
     "anneal_ent": False,
-    "gamma": 0.99,
+    "gamma": 0.995,
     "gae_lambda": 0.95,
-    "num_minibatches": 4,
-    "update_epochs": 4,
+    "num_minibatches": 8,
+    "update_epochs": 8,
     "norm_adv": True,
-    "clip_coef": 0.2,
+    "clip_coef": 0.3,
     "clip_vloss": True,
-    "ent_coef": 0.05,
+    "ent_coef": 0.01,
     "vf_coef": 1.0,
     "max_grad_norm": 0.5,
     "target_kl": None,
@@ -49,7 +49,7 @@ DEFAULT_CONFIG = {
 
 ENV_CONFIG = {
     "frame_skip": 4,
-    "action_delay": 16,
+    "action_delay": 8,
     "max_t": 4000,
     "use_special_charge_action": False,
     "win_reward_scaling_coeff": 10.0,

@@ -632,12 +632,22 @@ class FootsiesEnv(ParallelEnv):
         # ── Auto-reset done envs ──────────────────────────────
         done = terminated | truncated
         if done.any():
-            # Explicitly reset all done envs. The server
-            # auto-resets on KO at the next step, but that
-            # skips a clean post-reset state. Calling Reset()
-            # twice is idempotent so this is safe.
             self.vec_game.batch_reset(done)
             self._reset_vec_env_state(done)
+
+            # Re-encode post-reset obs for done envs so the
+            # caller gets reset observations in the same step
+            # as the terminal rewards/dones.
+            reset_raw = self.vec_game.batch_reset(done)
+            reset_obs = self._encoder.encode(
+                reset_raw,
+                self._prev_selected[:, 0],
+                self._prev_selected[:, 1],
+                self._holding_special[:, 0],
+                self._holding_special[:, 1],
+            )
+            obs["p1"][done] = reset_obs["p1"][done]
+            obs["p2"][done] = reset_obs["p2"][done]
 
         rewards = {"p1": p1_rewards, "p2": p2_rewards}
         terminateds = {"p1": terminated, "p2": terminated}

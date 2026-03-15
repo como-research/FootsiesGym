@@ -26,6 +26,8 @@ service VectorizedFootsiesService {
     // State getters - get current state in either format without stepping
     rpc GetBatchRawState(Empty) returns (BatchRawState) {}
     rpc GetBatchEncodedState(GetBatchEncodedStateInput) returns (BatchEncodedState) {}
+    // Structured GameState getter - get per-env PlayerState objects without stepping
+    rpc GetBatchGameStates(Empty) returns (BatchGameStates) {}
 
     rpc IsVecReady(Empty) returns (BoolValue) {}
 }
@@ -234,4 +236,12 @@ message GetBatchEncodedStateInput {
     repeated bool p1_holding_special = 3;
     repeated bool p2_holding_special = 4;
     int64 num_actions = 5;
+}
+
+// Per-environment structured GameState objects.
+// Reuses the existing GameState/PlayerState messages for easy Python-side access.
+message BatchGameStates {
+    repeated GameState game_states = 1;
+    repeated bool dones = 2;
+    repeated int32 rewards = 3;
 }
