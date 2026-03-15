@@ -53,7 +53,7 @@ class ModuleRepository:
                 shape=(encoder.FootsiesEncoder.observation_size,),
             ),
             action_space=footsies_env.FootsiesEnv.get_action_space(
-                use_special_charge_action=False
+                use_special_charge_action=True
             )["p1"],
             config={},
         ),
@@ -64,7 +64,7 @@ class ModuleRepository:
                 shape=(encoder.FootsiesEncoder.observation_size,),
             ),
             action_space=footsies_env.FootsiesEnv.get_action_space(
-                use_special_charge_action=False
+                use_special_charge_action=True
             )["p1"],
             config={},
         ),

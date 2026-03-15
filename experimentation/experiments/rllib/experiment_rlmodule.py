@@ -1,10 +1,18 @@
+import numpy as np
 import ray
+from gymnasium import spaces
 from ray import air, tune
 from ray.air.integrations.wandb import WandbLoggerCallback
 from ray.rllib.algorithms import ppo
 from ray.rllib.core.rl_module import multi_rl_module, rl_module
+from ray.rllib.examples.rl_modules.classes.lstm_containing_rlm import (
+    LSTMContainingRLModule,
+)
 from ray.rllib.examples.rl_modules.classes import random_rlm
 from ray.tune import CLIReporter
+
+from footsiesgym.footsies.encoder import FootsiesEncoder
+from footsiesgym.footsies.footsies_env import FootsiesEnv
 from ray.tune.result import (
     EPISODE_REWARD_MEAN,
     MEAN_ACCURACY,
@@ -20,13 +28,13 @@ from experimentation.experiments.rllib.callbacks.winrates_v2 import (
     WinratesV2,
 )
 from experimentation.models.rl_modules import back, noop
-from footsiesgym.rllib.env_runner import FootsiesEnvRunner
+from experimentation.experiments.rllib.env_runner import FootsiesEnvRunner
 
 eval_policies = []
 
 # Number of game instances per env runner (server-side vectorized)
 # GAMES_PER_RUNNER = 48
-TOTAL_ENV_STEPS = 50_000_000
+TOTAL_ENV_STEPS = 10_000_000
 
 
 class Experiment:
@@ -51,7 +59,7 @@ class Experiment:
                 "learners/focal_policy/num_module_steps_trained_lifetime": TOTAL_ENV_STEPS
             },
             callbacks=(
-                [WandbLoggerCallback(project="Footsies-RLlib")]
+                [WandbLoggerCallback(project="Footsies-RLlib-8ad-0")]
                 if not self.config.get("debug", False)
                 else None
             ),
@@ -73,10 +81,10 @@ class Experiment:
             tune_config = tune.TuneConfig(
                 num_samples=self.config.get("num_trials", 100),
                 max_concurrent_trials=self.config.get(
-                    "max_concurrent_trials", 4
+                    "max_concurrent_trials", 1
                 ),
                 metric=(
-                    "evaluation/env_runners/module_episode_returns_mean/focal_policy"
+                    "evaluation/env_runners/winrates/focal_policy/vs_random"
                 ),
                 mode="max",
                 search_alg=HyperOptSearch(),
@@ -96,7 +104,8 @@ class Experiment:
         return tune_config
 
     def construct_model_config(self):
-        num_runners = 1 if not self.config.get("debug", False) else 1
+        debug = self.config.get("debug", False)
+        num_runners = 1 if debug else 1
         # games_per_runner = (
         #     GAMES_PER_RUNNER if not self.config.get("debug", False) else 2
         # )
@@ -108,7 +117,7 @@ class Experiment:
                 env_config={
                     "max_t": 4000,
                     "frame_skip": 4,
-                    "action_delay": 16,
+                    "action_delay": 8,
                     "guard_break_reward": 0.0,
                     "win_reward_scaling_coeff": 10.0,
                     "use_reward_budget": False,
@@ -124,9 +133,7 @@ class Experiment:
             .learners(
                 num_learners=1,
                 num_cpus_per_learner=1,
-                num_gpus_per_learner=(
-                    0.25 if not self.config.get("debug", False) else 0
-                ),
+                num_gpus_per_learner=(0 if debug else 0.25),
             )
             .env_runners(
                 env_runner_cls=FootsiesEnvRunner,
@@ -167,6 +174,23 @@ class Experiment:
                                 "fcnet_activation": "relu",
                             },
                         ),
+                        # "focal_policy": rl_module.RLModuleSpec(
+                        #     module_class=LSTMContainingRLModule,
+                        #     observation_space=spaces.Box(
+                        #         -np.inf,
+                        #         np.inf,
+                        #         (FootsiesEncoder.observation_size,),
+                        #         np.float32,
+                        #     ),
+                        #     action_space=FootsiesEnv.get_action_space(
+                        #         use_special_charge_action=False,
+                        #     )["p1"],
+                        #     model_config={
+                        #         "lstm_cell_size": 256,
+                        #         "dense_layers": [256, 256],
+                        #         "max_seq_len": 64,
+                        #     },
+                        # ),
                         "random": rl_module.RLModuleSpec(
                             module_class=random_rlm.RandomRLModule,
                         ),
@@ -180,11 +204,9 @@ class Experiment:
                 )
             )
             .evaluation(
-                evaluation_num_env_runners=(
-                    4 if not self.config.get("debug", False) else 1
-                ),
+                evaluation_num_env_runners=(1 if debug else 1),
                 evaluation_interval=1,
-                evaluation_duration=512,
+                evaluation_duration="auto",
                 evaluation_duration_unit="episodes",
                 evaluation_parallel_to_training=True,
                 evaluation_config={
@@ -254,7 +276,7 @@ class Experiment:
                 lambda_=tune.choice([0.8, 0.9, 0.95]),
             )
         return dict(
-            train_batch_size=256 * 48,
+            train_batch_size=2048 * 16,
             minibatch_size=2048,
             lr=[[0, 0.001], [TOTAL_ENV_STEPS, 0]],
             entropy_coeff=0.01,

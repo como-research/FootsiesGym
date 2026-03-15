@@ -65,7 +65,7 @@ class Experiment:
                 )
             },
             callbacks=(
-                [WandbLoggerCallback(project="Footsies-v0")]
+                [WandbLoggerCallback(project="Footsies-v0"),]
                 if not self.config.get("debug", False)
                 else None
             ),
@@ -118,7 +118,7 @@ class Experiment:
             shape=(encoder.FootsiesEncoder.observation_size,),
         )
         policy_action_space = footsies_env.FootsiesEnv.get_action_space(
-            use_special_charge_action=False
+            use_special_charge_action=True
         )["p1"]
 
         # Add policy names stored in the ModuleRepository here to evaluate against them

@@ -85,6 +85,7 @@ class FootsiesEnv(ParallelEnv):
                 )
             )
         )
+
         self.num_actions: int = len(
             [
                 constants.EnvActions.NONE,
@@ -94,6 +95,8 @@ class FootsiesEnv(ParallelEnv):
                 constants.EnvActions.BACK_ATTACK,
                 constants.EnvActions.FORWARD_ATTACK,
                 constants.EnvActions.SPECIAL_CHARGE,
+                constants.EnvActions.FORWARD_SPECIAL_CHARGE,
+                constants.EnvActions.BACK_SPECIAL_CHARGE,
             ]
         )
 
@@ -222,7 +225,12 @@ class FootsiesEnv(ParallelEnv):
             constants.EnvActions.FORWARD_ATTACK,
         ]
         if use_special_charge_action:
-            available_actions.append(constants.EnvActions.SPECIAL_CHARGE)
+            available_actions.extend([
+                constants.EnvActions.SPECIAL_CHARGE,
+                constants.EnvActions.FORWARD_SPECIAL_CHARGE,
+                constants.EnvActions.BACK_SPECIAL_CHARGE,
+            ])
+
         return {
             agent: spaces.Discrete(len(available_actions))
             for agent in ["p1", "p2"]
@@ -319,16 +327,24 @@ class FootsiesEnv(ParallelEnv):
 
         # Special charge toggle
         for agent_id in self.agents:
-            if (
+            action_is_special_charge = (
                 actions_to_execute[agent_id]
-                == constants.EnvActions.SPECIAL_CHARGE
-            ):
+                in [
+                    constants.EnvActions.SPECIAL_CHARGE,
+                    constants.EnvActions.FORWARD_SPECIAL_CHARGE,
+                    constants.EnvActions.BACK_SPECIAL_CHARGE,
+                ]
+            )
+
+            if action_is_special_charge:
                 self._holding_special_charge[agent_id] = (
                     not self._holding_special_charge[agent_id]
                 )
-                actions_to_execute[agent_id] = self.prev_executed_actions[
-                    agent_id
-                ]
+                actions_to_execute[agent_id] = (
+                    self._convert_special_charge_to_base_action(
+                        actions_to_execute[agent_id]
+                    )
+                )
 
             if self._holding_special_charge[agent_id]:
                 actions_to_execute[agent_id] = self._convert_to_charge_action(
@@ -528,14 +544,28 @@ class FootsiesEnv(ParallelEnv):
             self._queue_head = (head + 1) % K
 
         # ── Special charge toggle ─────────────────────────────
-        is_special = to_execute == constants.EnvActions.SPECIAL_CHARGE
+        is_special = (
+            (to_execute == constants.EnvActions.SPECIAL_CHARGE)
+            | (to_execute == constants.EnvActions.FORWARD_SPECIAL_CHARGE)
+            | (to_execute == constants.EnvActions.BACK_SPECIAL_CHARGE)
+        )
         if is_special.any():
             # Toggle holding state
             self._holding_special[is_special] = ~self._holding_special[
                 is_special
             ]
-            # Replace SPECIAL_CHARGE with prev_executed
-            to_execute[is_special] = self._prev_executed[is_special]
+            # Convert special charge actions to their base movement
+            base = to_execute.copy()
+            base[
+                to_execute == constants.EnvActions.SPECIAL_CHARGE
+            ] = constants.EnvActions.NONE
+            base[
+                to_execute == constants.EnvActions.FORWARD_SPECIAL_CHARGE
+            ] = constants.EnvActions.FORWARD
+            base[
+                to_execute == constants.EnvActions.BACK_SPECIAL_CHARGE
+            ] = constants.EnvActions.BACK
+            to_execute[is_special] = base[is_special]
 
         # Apply charge conversion for all held envs/agents
         held = self._holding_special
@@ -602,13 +632,22 @@ class FootsiesEnv(ParallelEnv):
         # ── Auto-reset done envs ──────────────────────────────
         done = terminated | truncated
         if done.any():
-            # Server auto-resets on KO. For truncated-only envs
-            # (not terminated), we need to explicitly reset.
-            trunc_only = truncated & ~terminated
-            if trunc_only.any():
-                self.vec_game.batch_reset(trunc_only)
-
+            self.vec_game.batch_reset(done)
             self._reset_vec_env_state(done)
+
+            # Re-encode post-reset obs for done envs so the
+            # caller gets reset observations in the same step
+            # as the terminal rewards/dones.
+            reset_raw = self.vec_game.batch_reset(done)
+            reset_obs = self._encoder.encode(
+                reset_raw,
+                self._prev_selected[:, 0],
+                self._prev_selected[:, 1],
+                self._holding_special[:, 0],
+                self._holding_special[:, 1],
+            )
+            obs["p1"][done] = reset_obs["p1"][done]
+            obs["p2"][done] = reset_obs["p2"][done]
 
         rewards = {"p1": p1_rewards, "p2": p2_rewards}
         terminateds = {"p1": terminated, "p2": terminated}
@@ -642,6 +681,20 @@ class FootsiesEnv(ParallelEnv):
             return constants.EnvActions.FORWARD_ATTACK
         else:
             return constants.EnvActions.ATTACK
+
+    @staticmethod
+    def _convert_special_charge_to_base_action(action: int) -> int:
+        if action == constants.EnvActions.SPECIAL_CHARGE:
+            return constants.EnvActions.NONE
+        elif action == constants.EnvActions.FORWARD_SPECIAL_CHARGE:
+            return constants.EnvActions.FORWARD
+        elif action == constants.EnvActions.BACK_SPECIAL_CHARGE:
+            return constants.EnvActions.BACK
+        raise ValueError(
+            f"Invalid special charge action: {action}, expected "
+            "one of SPECIAL_CHARGE, FORWARD_SPECIAL_CHARGE, "
+            "BACK_SPECIAL_CHARGE."
+        )
 
     def _launch_binaries(self, port: int):
         if platform.system().lower() in ["windows", "darwin"]:

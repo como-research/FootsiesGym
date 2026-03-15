@@ -4,6 +4,7 @@ from ray.rllib.models.torch import recurrent_net
 # from ray.rllib.models.torch import torch_modelv2
 from ray.rllib.utils import framework
 from ray.rllib.utils import typing as rllib_typing
+from ray.rllib.utils.torch_utils import FLOAT_MIN
 
 torch, nn = framework.try_import_torch()
 
@@ -23,6 +24,7 @@ class LSTMModel(recurrent_net.RecurrentNetwork, nn.Module):
         )
         nn.Module.__init__(self)
 
+        obs_space = obs_space.original_space["obs"] if hasattr(obs_space, 'original_space') else obs_space
         input_size = obs_space.shape[0]
         self.lstm_cell_size = kwargs.get("lstm_cell_size", 128)
         self.lstm = nn.LSTM(input_size, self.lstm_cell_size, batch_first=True)
@@ -45,6 +47,29 @@ class LSTMModel(recurrent_net.RecurrentNetwork, nn.Module):
 
         self.pi = nn.Linear(policy_dense_widths[-1], num_outputs)
         self.vf = nn.Linear(policy_dense_widths[-1], 1)
+
+
+    def forward(
+        self,
+        input_dict: dict[str, rllib_typing.TensorType],
+        state: list[rllib_typing.TensorType],
+        seq_lens: rllib_typing.TensorType,
+    ) -> tuple[rllib_typing.TensorType, list[rllib_typing.TensorType]]:
+    
+
+        if isinstance(input_dict["obs"], dict):
+            input_dict["obs_flat"] = input_dict["obs"]["obs"]
+
+        output, new_state = super().forward(input_dict, state, seq_lens)
+
+        if isinstance(input_dict["obs"], dict):
+            action_mask = input_dict["obs"].get("action_mask")
+            if action_mask is not None:
+                inf_mask = torch.clamp(torch.log(action_mask), min=FLOAT_MIN)
+                output = output + inf_mask
+        
+        return output, new_state
+
 
     def forward_rnn(
         self,
