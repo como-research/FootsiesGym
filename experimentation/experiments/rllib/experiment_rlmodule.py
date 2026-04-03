@@ -129,7 +129,7 @@ class Experiment:
                         ),
                         # 10% of the time, Policy A vs. Policy B
                         matchmaking.Matchup(
-                            "policy_a",
+                            "policy_b",
                             "policy_b",
                             0.1,
                         ),
