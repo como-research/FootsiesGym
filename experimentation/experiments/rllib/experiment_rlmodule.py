@@ -135,7 +135,7 @@ class Experiment:
                         ),
                     ]
                 ).policy_mapping_fn,
-                policies_to_train=["focal_policy"],
+                policies_to_train=["policy_a", "policy_b"],
             )
             .rl_module(
                 rl_module_spec=multi_rl_module.MultiRLModuleSpec(
