@@ -1,18 +1,9 @@
-import numpy as np
 import ray
-from gymnasium import spaces
 from ray import air, tune
 from ray.air.integrations.wandb import WandbLoggerCallback
 from ray.rllib.algorithms import ppo
 from ray.rllib.core.rl_module import multi_rl_module, rl_module
-from ray.rllib.examples.rl_modules.classes.lstm_containing_rlm import (
-    LSTMContainingRLModule,
-)
-from ray.rllib.examples.rl_modules.classes import random_rlm
 from ray.tune import CLIReporter
-
-from footsiesgym.footsies.encoder import FootsiesEncoder
-from footsiesgym.footsies.footsies_env import FootsiesEnv
 from ray.tune.result import (
     EPISODE_REWARD_MEAN,
     MEAN_ACCURACY,
@@ -20,14 +11,10 @@ from ray.tune.result import (
     TIME_TOTAL_S,
     TIMESTEPS_TOTAL,
 )
-from ray.tune.search.hyperopt import HyperOptSearch
 
 import footsiesgym
 from experimentation.experiments.rllib import matchmaking
-from experimentation.experiments.rllib.callbacks.winrates_v2 import (
-    WinratesV2,
-)
-from experimentation.models.rl_modules import back, noop
+from experimentation.experiments.rllib.callbacks.winrates_v2 import WinratesV2
 from experimentation.experiments.rllib.env_runner import FootsiesEnvRunner
 
 eval_policies = []
@@ -77,30 +64,10 @@ class Experiment:
         return run_config
 
     def construct_tune_config(self):
-        if self.config.get("tune"):
-            tune_config = tune.TuneConfig(
-                num_samples=self.config.get("num_trials", 100),
-                max_concurrent_trials=self.config.get(
-                    "max_concurrent_trials", 1
-                ),
-                metric=(
-                    "evaluation/env_runners/winrates/focal_policy/vs_random"
-                ),
-                mode="max",
-                search_alg=HyperOptSearch(),
-                scheduler=tune.schedulers.ASHAScheduler(
-                    time_attr="learners/focal_policy/num_module_steps_trained_lifetime",
-                    max_t=TOTAL_ENV_STEPS,
-                    grace_period=TOTAL_ENV_STEPS // 10,
-                ),
-            )
-        else:
-            tune_config = tune.TuneConfig(
-                num_samples=self.config.get("num_trials", 100),
-                max_concurrent_trials=self.config.get(
-                    "max_concurrent_trials", 4
-                ),
-            )
+        tune_config = tune.TuneConfig(
+            num_samples=self.config.get("num_trials", 100),
+            max_concurrent_trials=self.config.get("max_concurrent_trials", 4),
+        )
         return tune_config
 
     def construct_model_config(self):
@@ -149,18 +116,23 @@ class Experiment:
             )
             .multi_agent(
                 policies={
-                    "focal_policy",
-                    "random",
-                    "noop",
-                    "back",
+                    "policy_a",
+                    "policy_b",
                 },
                 policy_mapping_fn=matchmaking.Matchmaker(
                     [
+                        # 90% of the time, Policy A vs. Policy A
                         matchmaking.Matchup(
-                            "focal_policy",
-                            "focal_policy",
-                            1.0,
-                        )
+                            "policy_a",
+                            "policy_a",
+                            0.9,
+                        ),
+                        # 10% of the time, Policy A vs. Policy B
+                        matchmaking.Matchup(
+                            "policy_a",
+                            "policy_b",
+                            0.1,
+                        ),
                     ]
                 ).policy_mapping_fn,
                 policies_to_train=["focal_policy"],
@@ -168,37 +140,17 @@ class Experiment:
             .rl_module(
                 rl_module_spec=multi_rl_module.MultiRLModuleSpec(
                     rl_module_specs={
-                        "focal_policy": rl_module.RLModuleSpec(
+                        "policy_a": rl_module.RLModuleSpec(
                             model_config={
                                 "fcnet_hiddens": [256, 256],
                                 "fcnet_activation": "relu",
                             },
                         ),
-                        # "focal_policy": rl_module.RLModuleSpec(
-                        #     module_class=LSTMContainingRLModule,
-                        #     observation_space=spaces.Box(
-                        #         -np.inf,
-                        #         np.inf,
-                        #         (FootsiesEncoder.observation_size,),
-                        #         np.float32,
-                        #     ),
-                        #     action_space=FootsiesEnv.get_action_space(
-                        #         use_special_charge_action=False,
-                        #     )["p1"],
-                        #     model_config={
-                        #         "lstm_cell_size": 256,
-                        #         "dense_layers": [256, 256],
-                        #         "max_seq_len": 64,
-                        #     },
-                        # ),
-                        "random": rl_module.RLModuleSpec(
-                            module_class=random_rlm.RandomRLModule,
-                        ),
-                        "noop": rl_module.RLModuleSpec(
-                            module_class=noop.NoOpRLModule,
-                        ),
-                        "back": rl_module.RLModuleSpec(
-                            module_class=back.BackRLModule,
+                        "policy_b": rl_module.RLModuleSpec(
+                            model_config={
+                                "fcnet_hiddens": [256, 256],
+                                "fcnet_activation": "relu",
+                            },
                         ),
                     },
                 )
@@ -211,19 +163,6 @@ class Experiment:
                 evaluation_parallel_to_training=True,
                 evaluation_config={
                     "env_config": {"evaluation": True},
-                    "multiagent": {
-                        "policy_mapping_fn": matchmaking.Matchmaker(
-                            [
-                                matchmaking.Matchup(
-                                    "focal_policy",
-                                    ep,
-                                    1 / (len(eval_policies) + 3),
-                                )
-                                for ep in eval_policies
-                                + ["random", "back", "noop"]
-                            ]
-                        ).policy_mapping_fn,
-                    },
                 },
             )
             .callbacks(callbacks_class=WinratesV2)
@@ -232,51 +171,8 @@ class Experiment:
         return config
 
     def _training_params(self):
-        if self.config.get("tune"):
-            return dict(
-                train_batch_size=tune.choice(
-                    [
-                        4_096,
-                        16_384,
-                        32_768,
-                        65_536,
-                    ]
-                ),
-                minibatch_size=tune.choice([256, 1024, 2048, 4096]),
-                lr=tune.choice(
-                    [
-                        [[0, 0.003], [TOTAL_ENV_STEPS, 0]],
-                        [[0, 0.001], [TOTAL_ENV_STEPS, 0]],
-                        [[0, 0.0003], [TOTAL_ENV_STEPS, 0]],
-                        [[0, 0.0005], [TOTAL_ENV_STEPS, 0]],
-                        [[0, 0.0001], [TOTAL_ENV_STEPS, 0]],
-                        1e-3,
-                        3e-4,
-                        5e-5,
-                        1e-5,
-                    ]
-                ),
-                entropy_coeff=tune.choice(
-                    [
-                        [[0, 0.01], [TOTAL_ENV_STEPS, 0]],
-                        [[0, 0.03], [TOTAL_ENV_STEPS, 0]],
-                        [[0, 0.05], [TOTAL_ENV_STEPS, 0]],
-                        [[0, 0.1], [TOTAL_ENV_STEPS, 0]],
-                        [[0, 0.5], [TOTAL_ENV_STEPS, 0]],
-                        0.005,
-                        0.01,
-                        0.03,
-                        0.05,
-                        0.1,
-                        0.5,
-                    ]
-                ),
-                gamma=tune.choice([0.99, 0.995]),
-                vf_loss_coeff=tune.choice([0.5, 1.0]),
-                lambda_=tune.choice([0.8, 0.9, 0.95]),
-            )
         return dict(
-            train_batch_size=2048 * 16,
+            train_batch_size=32_768,
             minibatch_size=2048,
             lr=[[0, 0.001], [TOTAL_ENV_STEPS, 0]],
             entropy_coeff=0.01,
