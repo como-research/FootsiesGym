@@ -1,5 +1,7 @@
 import dataclasses
 
+import numpy as np
+
 
 @dataclasses.dataclass
 class EnvActions:
@@ -10,6 +12,8 @@ class EnvActions:
     BACK_ATTACK = 4
     FORWARD_ATTACK = 5
     SPECIAL_CHARGE = 6
+    FORWARD_SPECIAL_CHARGE = 7
+    BACK_SPECIAL_CHARGE = 8
 
 
 @dataclasses.dataclass
@@ -91,3 +95,48 @@ FOOTSIES_ACTION_IDS = {
     "DEAD": ActionID.DEAD,
     "WIN": ActionID.WIN,
 }
+
+
+# ── Vectorized lookup tables (numpy) ──────────────────────────────
+# Indexed by base EnvActions (0-5) only. Special charge actions
+# (6-8) must be resolved to base actions in Python before lookup.
+# P1 faces right: BACK→LEFT, FORWARD→RIGHT
+P1_ENV_TO_BITS = np.array(
+    [
+        ActionBits.NONE,  # NONE
+        ActionBits.LEFT,  # BACK
+        ActionBits.RIGHT,  # FORWARD
+        ActionBits.ATTACK,  # ATTACK
+        ActionBits.LEFT_ATTACK,  # BACK_ATTACK
+        ActionBits.RIGHT_ATTACK,  # FORWARD_ATTACK
+    ],
+    dtype=np.int64,
+)
+
+# P2 faces left: BACK→RIGHT, FORWARD→LEFT
+P2_ENV_TO_BITS = np.array(
+    [
+        ActionBits.NONE,  # NONE
+        ActionBits.RIGHT,  # BACK
+        ActionBits.LEFT,  # FORWARD
+        ActionBits.ATTACK,  # ATTACK
+        ActionBits.RIGHT_ATTACK,  # BACK_ATTACK
+        ActionBits.LEFT_ATTACK,  # FORWARD_ATTACK
+    ],
+    dtype=np.int64,
+)
+
+# Base EnvAction → charge variant (while holding special).
+# Indexed by base actions (0-5) only.
+# BACK→BACK_ATTACK, FORWARD→FORWARD_ATTACK, everything else→ATTACK
+CHARGE_ACTION_LUT = np.array(
+    [
+        EnvActions.ATTACK,  # NONE → ATTACK
+        EnvActions.BACK_ATTACK,  # BACK → BACK_ATTACK
+        EnvActions.FORWARD_ATTACK,  # FORWARD → FORWARD_ATTACK
+        EnvActions.ATTACK,  # ATTACK → ATTACK
+        EnvActions.BACK_ATTACK,  # BACK_ATTACK → BACK_ATTACK
+        EnvActions.FORWARD_ATTACK,  # FORWARD_ATTACK → FORWARD_ATTACK
+    ],
+    dtype=np.int64,
+)

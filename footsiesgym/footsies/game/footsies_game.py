@@ -102,10 +102,19 @@ class FootsiesGame:
 
     @staticmethod
     def action_to_bits(action: int, is_player_1: bool) -> int:
-        """Converts an action to its corresponding bit representation."""
+        """Converts a base EnvAction (0-5) to ActionBits for gRPC.
 
+        Special charge actions (6-8) must be resolved to base
+        actions before calling this method.
+        """
         if isinstance(action, np.ndarray):
             action = action.item()
+
+        assert action <= constants.EnvActions.FORWARD_ATTACK, (
+            f"Only base actions (0-5) should reach the server, "
+            f"got {action}. Special charge actions must be "
+            f"resolved in Python before sending to gRPC."
+        )
 
         if is_player_1:
             if action == constants.EnvActions.BACK:
@@ -127,3 +136,86 @@ class FootsiesGame:
                 action = constants.GameActions.LEFT_ATTACK
 
         return constants.ACTION_TO_BITS[action]
+
+
+class VectorizedFootsiesGame:
+    """gRPC client for the VectorizedFootsiesService batch API.
+
+    Shares a channel with FootsiesGame (needs the game service
+    for StartGame/IsReady before vectorized envs can be initialized).
+    """
+
+    def __init__(
+        self,
+        host: str = "localhost",
+        port: int = 50051,
+        num_envs: int = 1,
+    ):
+        self.host = host
+        self.port = port
+        self.num_envs = num_envs
+
+        channel = grpc.insecure_channel(f"{host}:{port}")
+        self.game_stub = (
+            footsies_pb2_grpc.FootsiesGameServiceStub(channel)
+        )
+        self.vec_stub = (
+            footsies_pb2_grpc.VectorizedFootsiesServiceStub(channel)
+        )
+
+    def start_and_init(self, timeout: float = 10.0):
+        """Start the game, wait for ready, and init vectorized envs."""
+        self.game_stub.StartGame(footsies_pb2.Empty())
+
+        # Wait for game ready
+        for _ in range(int(timeout / 0.5)):
+            if self.game_stub.IsReady(footsies_pb2.Empty()).value:
+                break
+            time.sleep(0.5)
+        else:
+            raise RuntimeError("Game never became ready")
+
+        # Init vectorized environments
+        self.vec_stub.InitEnvironments(
+            footsies_pb2.InitEnvironmentsRequest(
+                num_environments=self.num_envs
+            )
+        )
+
+        # Wait for vec ready
+        for _ in range(int(timeout / 0.5)):
+            if self.vec_stub.IsVecReady(
+                footsies_pb2.Empty()
+            ).value:
+                break
+            time.sleep(0.5)
+        else:
+            raise RuntimeError(
+                "Vectorized environments never became ready"
+            )
+
+    def batch_step(
+        self,
+        p1_actions: np.ndarray,
+        p2_actions: np.ndarray,
+        n_frames: int,
+    ) -> footsies_pb2.BatchRawState:
+        return self.vec_stub.BatchStep(
+            footsies_pb2.BatchStepInput(
+                p1_actions=p1_actions.tolist(),
+                p2_actions=p2_actions.tolist(),
+                n_frames=n_frames,
+            )
+        )
+
+    def batch_reset(
+        self, mask: np.ndarray
+    ) -> footsies_pb2.BatchRawState:
+        return self.vec_stub.BatchReset(
+            footsies_pb2.BatchResetInput(
+                reset_mask=mask.tolist()
+            )
+        )
+
+    def batch_reset_all(self) -> footsies_pb2.BatchRawState:
+        return self.vec_stub.BatchResetAll(footsies_pb2.Empty())

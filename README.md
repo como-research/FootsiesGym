@@ -210,7 +210,7 @@ Note: these steps assume you're working out of this repository. If you've pip-in
 
 1. Launch the windowed game binary (or skip this step and use `headless=False` on Linux):
    ```bash
-   ./footsies_linux_windowed_021725 --port 80051
+   ./footsies_linux_windowed_9c6b36f --port 80051
    ```
 
 2. Register your trained policy in `components/module_repository.py`:

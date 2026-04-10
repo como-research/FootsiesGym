@@ -10,6 +10,28 @@ service FootsiesGameService {
     rpc IsReady(Empty) returns (BoolValue) {}
 }
 
+service VectorizedFootsiesService {
+    rpc InitEnvironments(InitEnvironmentsRequest) returns (Empty) {}
+
+    // Raw state endpoints - Python performs encoding
+    rpc BatchStep(BatchStepInput) returns (BatchRawState) {}
+    rpc BatchReset(BatchResetInput) returns (BatchRawState) {}
+    rpc BatchResetAll(Empty) returns (BatchRawState) {}
+
+    // Encoded state endpoints - C# performs encoding via VectorizedEncoder
+    rpc BatchStepEncoded(BatchStepEncodedInput) returns (BatchEncodedState) {}
+    rpc BatchResetEncoded(BatchResetEncodedInput) returns (BatchEncodedState) {}
+    rpc BatchResetAllEncoded(BatchResetAllEncodedInput) returns (BatchEncodedState) {}
+
+    // State getters - get current state in either format without stepping
+    rpc GetBatchRawState(Empty) returns (BatchRawState) {}
+    rpc GetBatchEncodedState(GetBatchEncodedStateInput) returns (BatchEncodedState) {}
+    // Structured GameState getter - get per-env PlayerState objects without stepping
+    rpc GetBatchGameStates(Empty) returns (BatchGameStates) {}
+
+    rpc IsVecReady(Empty) returns (BoolValue) {}
+}
+
 
 message StepInput {
     int64 p1_action = 1;
@@ -53,11 +75,173 @@ message EncodedGameState {
     repeated float player2_encoding = 2;
 }
 
+message InitEnvironmentsRequest {
+    int64 num_environments = 1;
+}
+
+message BatchStepInput {
+    repeated int64 p1_actions = 1;
+    repeated int64 p2_actions = 2;
+    int64 n_frames = 3;
+}
+
+message BatchResetInput {
+    repeated bool reset_mask = 1;
+}
+
+// Raw (unencoded) per-field state for all environments.
+// Used when Python performs its own encoding.
+// Field numbers 3-46 match the hand-written C# BatchRawState class.
+message BatchRawState {
+    // Common fields
+    repeated int64 round_states = 3;
+    repeated bool dones = 4;
+    repeated int32 rewards = 5;
+    repeated int64 frame_counts = 6;
+
+    // P1 state arrays
+    repeated float p1_position_x = 7;
+    repeated bool p1_is_dead = 8;
+    repeated int64 p1_vital_health = 9;
+    repeated int64 p1_guard_health = 10;
+    repeated int64 p1_current_action_id = 11;
+    repeated int64 p1_current_action_frame = 12;
+    repeated int64 p1_current_action_frame_count = 13;
+    repeated bool p1_is_action_end = 14;
+    repeated bool p1_is_always_cancelable = 15;
+    repeated int64 p1_current_action_hit_count = 16;
+    repeated int64 p1_current_hit_stun_frame = 17;
+    repeated bool p1_is_in_hit_stun = 18;
+    repeated int64 p1_sprite_shake_position = 19;
+    repeated int64 p1_max_sprite_shake_frame = 20;
+    repeated float p1_velocity_x = 21;
+    repeated bool p1_is_face_right = 22;
+    repeated int64 p1_current_frame_advantage = 23;
+    repeated bool p1_would_next_forward_input_dash = 24;
+    repeated bool p1_would_next_backward_input_dash = 25;
+    repeated float p1_special_attack_progress = 26;
+
+    // P2 state arrays
+    repeated float p2_position_x = 27;
+    repeated bool p2_is_dead = 28;
+    repeated int64 p2_vital_health = 29;
+    repeated int64 p2_guard_health = 30;
+    repeated int64 p2_current_action_id = 31;
+    repeated int64 p2_current_action_frame = 32;
+    repeated int64 p2_current_action_frame_count = 33;
+    repeated bool p2_is_action_end = 34;
+    repeated bool p2_is_always_cancelable = 35;
+    repeated int64 p2_current_action_hit_count = 36;
+    repeated int64 p2_current_hit_stun_frame = 37;
+    repeated bool p2_is_in_hit_stun = 38;
+    repeated int64 p2_sprite_shake_position = 39;
+    repeated int64 p2_max_sprite_shake_frame = 40;
+    repeated float p2_velocity_x = 41;
+    repeated bool p2_is_face_right = 42;
+    repeated int64 p2_current_frame_advantage = 43;
+    repeated bool p2_would_next_forward_input_dash = 44;
+    repeated bool p2_would_next_backward_input_dash = 45;
+    repeated float p2_special_attack_progress = 46;
+}
+
+// Pre-encoded flat observation arrays for all environments.
+// p1_encodings/p2_encodings are flat: num_envs * obs_size floats.
+// Python reshapes as: np.array(response.p1_encodings).reshape(num_envs, obs_size)
+message BatchEncodedState {
+    // Common fields
+    repeated int64 round_states = 3;
+    repeated bool dones = 4;
+    repeated int32 rewards = 5;
+    repeated int64 frame_counts = 6;
+
+    // P1 state arrays (each length num_envs)
+    repeated float p1_position_x = 7;
+    repeated bool p1_is_dead = 8;
+    repeated int64 p1_vital_health = 9;
+    repeated int64 p1_guard_health = 10;
+    repeated int64 p1_current_action_id = 11;
+    repeated int64 p1_current_action_frame = 12;
+    repeated int64 p1_current_action_frame_count = 13;
+    repeated bool p1_is_action_end = 14;
+    repeated bool p1_is_always_cancelable = 15;
+    repeated int64 p1_current_action_hit_count = 16;
+    repeated int64 p1_current_hit_stun_frame = 17;
+    repeated bool p1_is_in_hit_stun = 18;
+    repeated int64 p1_sprite_shake_position = 19;
+    repeated int64 p1_max_sprite_shake_frame = 20;
+    repeated float p1_velocity_x = 21;
+    repeated bool p1_is_face_right = 22;
+    repeated int64 p1_current_frame_advantage = 23;
+    repeated bool p1_would_next_forward_input_dash = 24;
+    repeated bool p1_would_next_backward_input_dash = 25;
+    repeated float p1_special_attack_progress = 26;
+
+    // P2 state arrays (each length num_envs)
+    repeated float p2_position_x = 27;
+    repeated bool p2_is_dead = 28;
+    repeated int64 p2_vital_health = 29;
+    repeated int64 p2_guard_health = 30;
+    repeated int64 p2_current_action_id = 31;
+    repeated int64 p2_current_action_frame = 32;
+    repeated int64 p2_current_action_frame_count = 33;
+    repeated bool p2_is_action_end = 34;
+    repeated bool p2_is_always_cancelable = 35;
+    repeated int64 p2_current_action_hit_count = 36;
+    repeated int64 p2_current_hit_stun_frame = 37;
+    repeated bool p2_is_in_hit_stun = 38;
+    repeated int64 p2_sprite_shake_position = 39;
+    repeated int64 p2_max_sprite_shake_frame = 40;
+    repeated float p2_velocity_x = 41;
+    repeated bool p2_is_face_right = 42;
+    repeated int64 p2_current_frame_advantage = 43;
+    repeated bool p2_would_next_forward_input_dash = 44;
+    repeated bool p2_would_next_backward_input_dash = 45;
+    repeated float p2_special_attack_progress = 46;
+}
+
+// Request to step all environments with encoding context from Python.
+message BatchStepEncodedInput {
+    repeated int64 p1_actions = 1;
+    repeated int64 p2_actions = 2;
+    int64 n_frames = 3;
+    repeated int64 prev_p1_actions = 4;
+    repeated int64 prev_p2_actions = 5;
+    repeated bool p1_holding_special = 6;
+    repeated bool p2_holding_special = 7;
+    int64 num_actions = 8;
+}
+
+// Request to reset specific environments and return encoded observations.
+message BatchResetEncodedInput {
+    repeated bool reset_mask = 1;
+    int64 num_actions = 2;
+}
+
+// Request to reset all environments and return encoded observations.
+message BatchResetAllEncodedInput {
+    int64 num_actions = 1;
+}
+
 message BoolValue {
     bool value = 1;
 }
 
-
-
-
 message Empty {}
+
+// Request to encode the current state without stepping.
+// Provides Python-side encoding context.
+message GetBatchEncodedStateInput {
+    repeated int64 prev_p1_actions = 1;
+    repeated int64 prev_p2_actions = 2;
+    repeated bool p1_holding_special = 3;
+    repeated bool p2_holding_special = 4;
+    int64 num_actions = 5;
+}
+
+// Per-environment structured GameState objects.
+// Reuses the existing GameState/PlayerState messages for easy Python-side access.
+message BatchGameStates {
+    repeated GameState game_states = 1;
+    repeated bool dones = 2;
+    repeated int32 rewards = 3;
+}

@@ -11,7 +11,7 @@ from .binary_manager import get_binary_manager
 from .footsies import encoder, typing
 from .footsies.footsies_env import FootsiesEnv
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 __all__ = ["FootsiesEnv", "encoder", "typing", "make"]
 
 # Initialize binary manager (but don't download yet - wait until needed)
@@ -22,6 +22,7 @@ def make(
     config: dict | None = None,
     platform: str = "linux",
     launch_binaries: bool = True,
+    rllib: bool = False,
 ):
     """
     Create a FootsiesGym environment.
@@ -30,9 +31,12 @@ def make(
         config: Configuration dictionary for the environment
         platform: Platform to run on (currently only "linux" supported for auto-launch)
         launch_binaries: Whether to automatically launch game binaries
+        rllib: If True, wrap the environment for RLlib (requires ray[rllib]).
+            For vectorized mode (num_envs > 1), uses VectorizedFootsiesRLlibEnv.
+            For single-env mode, uses ParallelPettingZooEnv wrapper.
 
     Returns:
-        FootsiesEnv: The configured environment instance
+        A FootsiesEnv (PettingZoo ParallelEnv), or an RLlib MultiAgentEnv if rllib=True.
     """
     if launch_binaries:
         assert platform == "linux", (
@@ -49,4 +53,18 @@ def make(
     if config is not None:
         default_config.update(config)
 
-    return FootsiesEnv(config=default_config)
+    if rllib and default_config.get("num_envs", 1) > 1:
+        from footsiesgym.wrappers import (
+            VectorizedFootsiesRLlibEnv,
+        )
+
+        return VectorizedFootsiesRLlibEnv(default_config)
+
+    env = FootsiesEnv(config=default_config)
+
+    if rllib:
+        from footsiesgym.wrappers import wrap_rllib
+
+        return wrap_rllib(env)
+
+    return env
