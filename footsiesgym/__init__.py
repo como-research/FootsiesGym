@@ -11,7 +11,7 @@ from .binary_manager import get_binary_manager
 from .footsies import encoder, typing
 from .footsies.footsies_env import FootsiesEnv
 
-__version__ = "0.7.0"
+__version__ = "0.7.1"
 __all__ = ["FootsiesEnv", "encoder", "typing", "make"]
 
 # Initialize binary manager (but don't download yet - wait until needed)
@@ -54,9 +54,7 @@ def make(
         default_config.update(config)
 
     if rllib and default_config.get("num_envs", 1) > 1:
-        from footsiesgym.wrappers import (
-            VectorizedFootsiesRLlibEnv,
-        )
+        from footsiesgym.wrappers import VectorizedFootsiesRLlibEnv
 
         return VectorizedFootsiesRLlibEnv(default_config)
 

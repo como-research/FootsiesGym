@@ -31,6 +31,9 @@ class BinaryManager:
     """Manages automatic downloading and caching of FootsiesGym binaries."""
 
     # Primary download URL (Cloudflare R2 bucket)
+    # NOTE(chase): This must be updated with each release to point to the correct versioned directory.
+    # It's OK if it points to an old version as long as it's OK the the binaries are identical
+    # and the interface with them haven't changed.
     DOWNLOAD_BASE_URL = "https://footsiesgym.chasemcd.com/v0.7.0"
 
     # Fallback URLs in case primary fails
@@ -158,7 +161,9 @@ class BinaryManager:
             if headless
             else "footsies_binaries_windowed"
         )
-        binary_path = os.path.join(target_dir, binary_subdir, "footsies.x86_64")
+        binary_path = os.path.join(
+            target_dir, binary_subdir, "footsies.x86_64"
+        )
 
         # Check if extracted binaries already exist
         if os.path.exists(binary_path):
@@ -374,7 +379,7 @@ class BinaryManager:
 
                 # Create request with user agent to avoid blocking
                 request = urllib.request.Request(url)
-                request.add_header("User-Agent", "FootsiesGym/0.7.0")
+                request.add_header("User-Agent", "FootsiesGym/0.7.1")
 
                 with urllib.request.urlopen(request, timeout=30) as response:
                     # Check if we got a valid response

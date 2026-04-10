@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
+from footsiesgym import __version__
 from footsiesgym.binary_manager import BinaryManager
 
 
@@ -32,10 +33,8 @@ def real_mac_zips():
 
 class TestDownloadURL:
     def test_primary_url_points_to_cloudflare(self):
-        assert (
-            BinaryManager.DOWNLOAD_BASE_URL
-            == "https://footsiesgym.chasemcd.com/v0.6.0"
-        )
+        expected_url = f"https://footsiesgym.chasemcd.com/v{__version__}"
+        assert BinaryManager.DOWNLOAD_BASE_URL == expected_url
 
     def test_github_urls_are_fallbacks(self):
         assert len(BinaryManager.FALLBACK_URLS) == 2
