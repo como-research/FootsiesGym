@@ -157,6 +157,17 @@ class TestVectorizedEncoder:
         assert VectorizedEncoder.observation_size(7) == 86
         assert VectorizedEncoder.observation_size(6) == 85
 
+    def test_obs_layout_matches_documented_breakdown(self):
+        """Pin the README observation table: 1 common + 50 self + 37 opp = 88.
+
+        The env always encodes with num_actions=9, so both encoders must
+        agree with FootsiesEncoder.observation_size.
+        """
+        enc = VectorizedEncoder(num_actions=9)
+        assert enc.self_width == 50
+        assert enc.obs_size == 1 + 50 + 37 == 88
+        assert enc.obs_size == FootsiesEncoder.observation_size
+
     def test_matches_scalar_encoder(self):
         """Core test: vectorized output == scalar output for every env."""
         num_envs = 32

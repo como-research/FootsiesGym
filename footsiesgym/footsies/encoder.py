@@ -250,7 +250,7 @@ _ACTION_ID_LUT = np.full(max(_ACTION_ID_VALUES) + 1, -1, dtype=np.int32)
 for _idx, _val in enumerate(_ACTION_ID_VALUES):
     _ACTION_ID_LUT[_val] = _idx
 
-# Well-known feature width (shared between self and opponent views)
+# Public feature width (visible in both self and opponent views)
 _WELL_KNOWN_WIDTH = 37
 # Scalar well-known features before and after the one-hot blocks
 _N_GUARD_CLASSES = 4

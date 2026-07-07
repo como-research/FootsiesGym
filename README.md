@@ -131,13 +131,13 @@ Actions are queued and executed after `action_delay // frame_skip` steps. This s
 
 ## Observation Space
 
-Each agent receives a `Box` observation of shape `(86,)` containing:
+Each agent receives a `Box` observation of shape `(88,)` containing:
 
 | Component | Size | Description |
 |-----------|------|-------------|
 | Common state | 1 | Normalized distance between players |
-| Self player state | 40 | Position, velocity, health, action state, and **privileged features** (dash readiness, special progress, previous action, charge state) |
-| Opponent state | 45 | Same as self but **without** privileged features |
+| Self player state | 50 | 37 public features (position, velocity, health, guard, action state) plus 13 **privileged features**: dash readiness (2), special attack progress (1), previous action one-hot (9), and charge state (1) |
+| Opponent state | 37 | The public features only — **no** privileged features |
 
 Observations are asymmetric: each agent sees its own privileged information but not the opponent's.
 
