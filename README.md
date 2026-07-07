@@ -116,8 +116,10 @@ Each agent selects from a `Discrete` action space:
 | `BACK_ATTACK` | 4 | Back + Attack |
 | `FORWARD_ATTACK` | 5 | Forward + Attack |
 | `SPECIAL_CHARGE` | 6 | Toggle special charge (only when `use_special_charge_action=True`) |
+| `FORWARD_SPECIAL_CHARGE` | 7 | Move forward while toggling special charge (only when `use_special_charge_action=True`) |
+| `BACK_SPECIAL_CHARGE` | 8 | Move backward while toggling special charge (only when `use_special_charge_action=True`) |
 
-The action space is `Discrete(6)` by default, or `Discrete(7)` with `use_special_charge_action=True`.
+The action space is `Discrete(6)` by default, or `Discrete(9)` with `use_special_charge_action=True`.
 
 ### Special Charge Mechanic
 
