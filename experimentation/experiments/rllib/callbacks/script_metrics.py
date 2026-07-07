@@ -46,9 +46,7 @@ class ScriptMetrics(callbacks.DefaultCallbacks):
         if worker.env.evaluation:
             return
 
-        episode.user_data["script_metrics"] = collections.defaultdict(
-            lambda: 0
-        )
+        episode.user_data["script_metrics"] = collections.defaultdict(lambda: 0)
 
     def on_episode_step(
         self,

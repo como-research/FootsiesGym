@@ -2,7 +2,7 @@
 FootsiesGym - A reinforcement learning environment for HiFight's Footsies game.
 """
 
-from .footsies_env import FootsiesEnv
 from . import encoder, typing
+from .footsies_env import FootsiesEnv
 
 __all__ = ["FootsiesEnv", "encoder", "typing"]

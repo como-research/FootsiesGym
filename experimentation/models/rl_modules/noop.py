@@ -27,9 +27,7 @@ class NoOpRLModule(rl_module.RLModule):
         return [sample_batch.SampleBatch.ACTIONS]
 
     def _noop_forward(self, batch, **kwargs):
-        obs_batch_size = len(
-            tree.flatten(batch[sample_batch.SampleBatch.OBS])[0]
-        )
+        obs_batch_size = len(tree.flatten(batch[sample_batch.SampleBatch.OBS])[0])
         actions = batch_func(
             [footsies_constants.EnvActions.NONE for _ in range(obs_batch_size)]
         )

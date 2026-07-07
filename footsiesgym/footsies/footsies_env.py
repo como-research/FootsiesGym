@@ -11,9 +11,6 @@ import portpicker
 from gymnasium import spaces
 from pettingzoo import ParallelEnv
 
-from footsiesgym.footsies.game.proto import (
-    footsies_service_pb2 as footsies_pb2,
-)
 from footsiesgym.footsies.typing import ActionType, AgentID, ObsType
 
 from ..binary_manager import get_binary_manager
@@ -66,24 +63,16 @@ class FootsiesEnv(ParallelEnv):
         self.use_build_encoding = config.get("use_build_encoding", False)
         self.agents: list[AgentID] = ["p1", "p2"]
         self.possible_agents: list[AgentID] = self.agents.copy()
-        self.win_reward_scaling_coeff = config.get(
-            "win_reward_scaling_coeff", 1.0
-        )
+        self.win_reward_scaling_coeff = config.get("win_reward_scaling_coeff", 1.0)
         self.guard_break_reward_value = config.get("guard_break_reward", 0.0)
         self.use_reward_budget = config.get("use_reward_budget", False)
-        assert (
-            self.guard_break_reward_value * 3 < self.win_reward_scaling_coeff
-        ), (
+        assert self.guard_break_reward_value * 3 < self.win_reward_scaling_coeff, (
             "Guard break reward total must be less than the win "
             "reward (guard break reward * 3 < win reward)"
         )
 
-        self._action_spaces: dict[AgentID, spaces.Discrete] = (
-            self._build_action_spaces(
-                use_special_charge_action=config.get(
-                    "use_special_charge_action", False
-                )
-            )
+        self._action_spaces: dict[AgentID, spaces.Discrete] = self._build_action_spaces(
+            use_special_charge_action=config.get("use_special_charge_action", False)
         )
 
         self.num_actions: int = len(
@@ -109,9 +98,7 @@ class FootsiesEnv(ParallelEnv):
             self.action_delay_frames % self.frame_skip == 0
         ), "action_delay must be divisible by frame_skip"
 
-        self.action_delay_steps: int = (
-            self.action_delay_frames // self.frame_skip
-        )
+        self.action_delay_steps: int = self.action_delay_frames // self.frame_skip
 
         port = config.get("port", None)
         self.headless = config.get("headless", True)
@@ -148,9 +135,7 @@ class FootsiesEnv(ParallelEnv):
         self.prev_executed_actions: dict[AgentID, int] = {
             a: constants.EnvActions.NONE for a in self.agents
         }
-        self.reward_budget = {
-            a: self.win_reward_scaling_coeff for a in self.agents
-        }
+        self.reward_budget = {a: self.win_reward_scaling_coeff for a in self.agents}
         self._holding_special_charge = {
             "p1": False,
             "p2": False,
@@ -225,15 +210,16 @@ class FootsiesEnv(ParallelEnv):
             constants.EnvActions.FORWARD_ATTACK,
         ]
         if use_special_charge_action:
-            available_actions.extend([
-                constants.EnvActions.SPECIAL_CHARGE,
-                constants.EnvActions.FORWARD_SPECIAL_CHARGE,
-                constants.EnvActions.BACK_SPECIAL_CHARGE,
-            ])
+            available_actions.extend(
+                [
+                    constants.EnvActions.SPECIAL_CHARGE,
+                    constants.EnvActions.FORWARD_SPECIAL_CHARGE,
+                    constants.EnvActions.BACK_SPECIAL_CHARGE,
+                ]
+            )
 
         return {
-            agent: spaces.Discrete(len(available_actions))
-            for agent in ["p1", "p2"]
+            agent: spaces.Discrete(len(available_actions)) for agent in ["p1", "p2"]
         }
 
     # ──────────────────────────────────────────────────────────
@@ -275,19 +261,13 @@ class FootsiesEnv(ParallelEnv):
         self.game.start_game()
 
         self._reset_action_delay_queues()
-        self.prev_selected_actions = {
-            a: constants.EnvActions.NONE for a in self.agents
-        }
-        self.prev_executed_actions = {
-            a: constants.EnvActions.NONE for a in self.agents
-        }
+        self.prev_selected_actions = {a: constants.EnvActions.NONE for a in self.agents}
+        self.prev_executed_actions = {a: constants.EnvActions.NONE for a in self.agents}
         self._holding_special_charge = {
             "p1": False,
             "p2": False,
         }
-        self.reward_budget = {
-            a: self.win_reward_scaling_coeff for a in self.agents
-        }
+        self.reward_budget = {a: self.win_reward_scaling_coeff for a in self.agents}
         self._encoder.reset()
 
         self.last_game_state = self.game.get_state()
@@ -320,21 +300,16 @@ class FootsiesEnv(ParallelEnv):
             actions_to_execute = actions.copy()
         else:
             for agent_id in self.agents:
-                actions_to_execute[agent_id] = self._action_queues[
-                    agent_id
-                ].popleft()
+                actions_to_execute[agent_id] = self._action_queues[agent_id].popleft()
                 self._action_queues[agent_id].append(actions[agent_id])
 
         # Special charge toggle
         for agent_id in self.agents:
-            action_is_special_charge = (
-                actions_to_execute[agent_id]
-                in [
-                    constants.EnvActions.SPECIAL_CHARGE,
-                    constants.EnvActions.FORWARD_SPECIAL_CHARGE,
-                    constants.EnvActions.BACK_SPECIAL_CHARGE,
-                ]
-            )
+            action_is_special_charge = actions_to_execute[agent_id] in [
+                constants.EnvActions.SPECIAL_CHARGE,
+                constants.EnvActions.FORWARD_SPECIAL_CHARGE,
+                constants.EnvActions.BACK_SPECIAL_CHARGE,
+            ]
 
             if action_is_special_charge:
                 self._holding_special_charge[agent_id] = (
@@ -351,9 +326,7 @@ class FootsiesEnv(ParallelEnv):
                     actions_to_execute[agent_id]
                 )
 
-        p1_action = self.game.action_to_bits(
-            actions_to_execute["p1"], is_player_1=True
-        )
+        p1_action = self.game.action_to_bits(actions_to_execute["p1"], is_player_1=True)
         p2_action = self.game.action_to_bits(
             actions_to_execute["p2"], is_player_1=False
         )
@@ -497,12 +470,8 @@ class FootsiesEnv(ParallelEnv):
         self._reward_budget[:] = self.win_reward_scaling_coeff
 
         # Store initial guard health
-        self._last_guard_health[:, 0] = np.array(
-            raw.p1_guard_health, dtype=np.int64
-        )
-        self._last_guard_health[:, 1] = np.array(
-            raw.p2_guard_health, dtype=np.int64
-        )
+        self._last_guard_health[:, 0] = np.array(raw.p1_guard_health, dtype=np.int64)
+        self._last_guard_health[:, 1] = np.array(raw.p2_guard_health, dtype=np.int64)
 
         obs = self._encoder.encode(
             raw,
@@ -551,20 +520,18 @@ class FootsiesEnv(ParallelEnv):
         )
         if is_special.any():
             # Toggle holding state
-            self._holding_special[is_special] = ~self._holding_special[
-                is_special
-            ]
+            self._holding_special[is_special] = ~self._holding_special[is_special]
             # Convert special charge actions to their base movement
             base = to_execute.copy()
-            base[
-                to_execute == constants.EnvActions.SPECIAL_CHARGE
-            ] = constants.EnvActions.NONE
-            base[
-                to_execute == constants.EnvActions.FORWARD_SPECIAL_CHARGE
-            ] = constants.EnvActions.FORWARD
-            base[
-                to_execute == constants.EnvActions.BACK_SPECIAL_CHARGE
-            ] = constants.EnvActions.BACK
+            base[to_execute == constants.EnvActions.SPECIAL_CHARGE] = (
+                constants.EnvActions.NONE
+            )
+            base[to_execute == constants.EnvActions.FORWARD_SPECIAL_CHARGE] = (
+                constants.EnvActions.FORWARD
+            )
+            base[to_execute == constants.EnvActions.BACK_SPECIAL_CHARGE] = (
+                constants.EnvActions.BACK
+            )
             to_execute[is_special] = base[is_special]
 
         # Apply charge conversion for all held envs/agents
@@ -704,9 +671,7 @@ class FootsiesEnv(ParallelEnv):
                 "or use a Linux system."
             )
 
-        project_root = os.path.dirname(
-            os.path.dirname(os.path.abspath(__file__))
-        )
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         binary_subdir = (
             "footsies_binaries_headless"
             if self.headless

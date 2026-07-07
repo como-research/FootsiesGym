@@ -1,18 +1,10 @@
-import numpy as np
 import ray
-from gymnasium import spaces
 from ray import air, tune
 from ray.air.integrations.wandb import WandbLoggerCallback
 from ray.rllib.algorithms import ppo
 from ray.rllib.core.rl_module import multi_rl_module, rl_module
-from ray.rllib.examples.rl_modules.classes.lstm_containing_rlm import (
-    LSTMContainingRLModule,
-)
 from ray.rllib.examples.rl_modules.classes import random_rlm
 from ray.tune import CLIReporter
-
-from footsiesgym.footsies.encoder import FootsiesEncoder
-from footsiesgym.footsies.footsies_env import FootsiesEnv
 from ray.tune.result import (
     EPISODE_REWARD_MEAN,
     MEAN_ACCURACY,
@@ -24,11 +16,9 @@ from ray.tune.search.hyperopt import HyperOptSearch
 
 import footsiesgym
 from experimentation.experiments.rllib import matchmaking
-from experimentation.experiments.rllib.callbacks.winrates_v2 import (
-    WinratesV2,
-)
-from experimentation.models.rl_modules import back, noop
+from experimentation.experiments.rllib.callbacks.winrates_v2 import WinratesV2
 from experimentation.experiments.rllib.env_runner import FootsiesEnvRunner
+from experimentation.models.rl_modules import back, noop
 
 eval_policies = []
 
@@ -80,12 +70,8 @@ class Experiment:
         if self.config.get("tune"):
             tune_config = tune.TuneConfig(
                 num_samples=self.config.get("num_trials", 100),
-                max_concurrent_trials=self.config.get(
-                    "max_concurrent_trials", 1
-                ),
-                metric=(
-                    "evaluation/env_runners/winrates/focal_policy/vs_random"
-                ),
+                max_concurrent_trials=self.config.get("max_concurrent_trials", 1),
+                metric=("evaluation/env_runners/winrates/focal_policy/vs_random"),
                 mode="max",
                 search_alg=HyperOptSearch(),
                 scheduler=tune.schedulers.ASHAScheduler(
@@ -97,9 +83,7 @@ class Experiment:
         else:
             tune_config = tune.TuneConfig(
                 num_samples=self.config.get("num_trials", 100),
-                max_concurrent_trials=self.config.get(
-                    "max_concurrent_trials", 4
-                ),
+                max_concurrent_trials=self.config.get("max_concurrent_trials", 4),
             )
         return tune_config
 
@@ -219,8 +203,7 @@ class Experiment:
                                     ep,
                                     1 / (len(eval_policies) + 3),
                                 )
-                                for ep in eval_policies
-                                + ["random", "back", "noop"]
+                                for ep in eval_policies + ["random", "back", "noop"]
                             ]
                         ).policy_mapping_fn,
                     },

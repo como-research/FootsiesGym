@@ -65,7 +65,9 @@ class Experiment:
                 )
             },
             callbacks=(
-                [WandbLoggerCallback(project="Footsies-v0"),]
+                [
+                    WandbLoggerCallback(project="Footsies-v0"),
+                ]
                 if not self.config.get("debug", False)
                 else None
             ),
@@ -88,9 +90,7 @@ class Experiment:
         if self.config.get("tune"):
             tune_config = tune.TuneConfig(
                 num_samples=self.config.get("num_trials", 20),
-                max_concurrent_trials=self.config.get(
-                    "max_concurrent_trials", 1
-                ),
+                max_concurrent_trials=self.config.get("max_concurrent_trials", 1),
                 metric="env_runners/policy_reward_mean/focal_policy",
                 mode="max",
                 search_alg=HyperOptSearch(),
@@ -103,9 +103,7 @@ class Experiment:
         else:
             tune_config = tune.TuneConfig(
                 num_samples=self.config.get("num_trials", 1),
-                max_concurrent_trials=self.config.get(
-                    "max_concurrent_trials", 1
-                ),
+                max_concurrent_trials=self.config.get("max_concurrent_trials", 1),
                 trial_name_creator=lambda trial: f"{self.config.get('experiment_name')}-{str(trial).split('_')[-1]}",
             )
         return tune_config
@@ -154,9 +152,7 @@ class Experiment:
                 num_cpus_for_local_worker=1,
             )
             .env_runners(
-                num_env_runners=(
-                    40 if not self.config.get("debug", False) else 1
-                ),
+                num_env_runners=(40 if not self.config.get("debug", False) else 1),
                 # Must be 1 unless the port configuration is changed
                 # in footsies_env.py, which finds the port according
                 # to the worker index.

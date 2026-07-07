@@ -96,9 +96,7 @@ class FootsiesVecEnv(gym.Env):
         self._episode_returns[:] = 0.0
         self._episode_lengths[:] = 0
         # Concatenate p1 block and p2 block
-        flat_obs = np.concatenate([obs["p1"], obs["p2"]], axis=0).astype(
-            np.float32
-        )
+        flat_obs = np.concatenate([obs["p1"], obs["p2"]], axis=0).astype(np.float32)
         return flat_obs, {}
 
     def step(self, actions):
@@ -110,12 +108,8 @@ class FootsiesVecEnv(gym.Env):
         }
         obs, rewards, terminateds, truncateds, _ = self.env.step(action_dict)
 
-        flat_obs = np.concatenate([obs["p1"], obs["p2"]], axis=0).astype(
-            np.float32
-        )
-        flat_rewards = np.concatenate([rewards["p1"], rewards["p2"]]).astype(
-            np.float32
-        )
+        flat_obs = np.concatenate([obs["p1"], obs["p2"]], axis=0).astype(np.float32)
+        flat_rewards = np.concatenate([rewards["p1"], rewards["p2"]]).astype(np.float32)
         flat_terminated = np.concatenate([terminateds["p1"], terminateds["p2"]])
         flat_truncated = np.concatenate([truncateds["p1"], truncateds["p2"]])
         flat_done = flat_terminated | flat_truncated
@@ -265,9 +259,7 @@ def train():
     )
 
     # Env setup — single server with N vectorized game instances
-    assert (
-        num_envs % 2 == 0
-    ), "num_envs must be even (2 agents per game instance)"
+    assert num_envs % 2 == 0, "num_envs must be even (2 agents per game instance)"
     num_game_instances = num_envs // 2
     envs = FootsiesVecEnv(num_game_instances)
 
@@ -286,12 +278,12 @@ def train():
     )
 
     # Storage setup
-    obs = torch.zeros(
-        (num_steps, num_envs) + envs.single_observation_space.shape
-    ).to(device)
-    actions = torch.zeros(
-        (num_steps, num_envs) + envs.single_action_space.shape
-    ).to(device)
+    obs = torch.zeros((num_steps, num_envs) + envs.single_observation_space.shape).to(
+        device
+    )
+    actions = torch.zeros((num_steps, num_envs) + envs.single_action_space.shape).to(
+        device
+    )
     logprobs = torch.zeros((num_steps, num_envs)).to(device)
     rewards = torch.zeros((num_steps, num_envs)).to(device)
     dones = torch.zeros((num_steps, num_envs)).to(device)
@@ -333,9 +325,7 @@ def train():
                 dones[step] = next_done
 
                 with torch.no_grad():
-                    action, logprob, _, value = agent.get_action_and_value(
-                        next_obs
-                    )
+                    action, logprob, _, value = agent.get_action_and_value(next_obs)
                     values[step] = value.flatten()
                 actions[step] = action
                 logprobs[step] = logprob
@@ -367,12 +357,12 @@ def train():
                             )
                             wandb.log(
                                 {
-                                    f"charts/episodic_return-{player}": info[
-                                        "episode"
-                                    ]["r"],
-                                    f"charts/episodic_length-{player}": info[
-                                        "episode"
-                                    ]["l"],
+                                    f"charts/episodic_return-{player}": info["episode"][
+                                        "r"
+                                    ],
+                                    f"charts/episodic_length-{player}": info["episode"][
+                                        "l"
+                                    ],
                                     "global_step": global_step,
                                 }
                             )
@@ -420,11 +410,9 @@ def train():
                     end = start + minibatch_size
                     mb_inds = b_inds[start:end]
 
-                    _, newlogprob, entropy, newvalue = (
-                        agent.get_action_and_value(
-                            b_obs[mb_inds],
-                            b_actions.long()[mb_inds],
-                        )
+                    _, newlogprob, entropy, newvalue = agent.get_action_and_value(
+                        b_obs[mb_inds],
+                        b_actions.long()[mb_inds],
                     )
                     logratio = newlogprob - b_logprobs[mb_inds]
                     ratio = logratio.exp()
@@ -441,9 +429,9 @@ def train():
 
                     mb_advantages = b_advantages[mb_inds]
                     if config["norm_adv"]:
-                        mb_advantages = (
-                            mb_advantages - mb_advantages.mean()
-                        ) / (mb_advantages.std() + 1e-8)
+                        mb_advantages = (mb_advantages - mb_advantages.mean()) / (
+                            mb_advantages.std() + 1e-8
+                        )
 
                     # Policy loss
                     pg_loss1 = -mb_advantages * ratio
@@ -467,15 +455,11 @@ def train():
                         v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
                         v_loss = 0.5 * v_loss_max.mean()
                     else:
-                        v_loss = (
-                            0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
-                        )
+                        v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
                     entropy_loss = entropy.mean()
                     loss = (
-                        pg_loss
-                        - ent_coef * entropy_loss
-                        + v_loss * config["vf_coef"]
+                        pg_loss - ent_coef * entropy_loss + v_loss * config["vf_coef"]
                     )
 
                     optimizer.zero_grad()

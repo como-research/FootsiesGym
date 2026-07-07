@@ -1,38 +1,53 @@
-# Linux
-To run headless linux servers, unpack the corresponding .zip file into the `binaries/` directory and rename the unpacked directory to `footsies_binaries`. Make sure to then run `chmod +x footsies_binaries/footsies.x86_64`.
-Next, you can either launch a single game server with:
+# Game Binaries
 
-```
-./footsies_binaries/footsies.x86_64 --port <YOUR_DESIRED_PORT>
+Game server binaries are **downloaded automatically** on first use — no manual
+setup is required. `footsiesgym` fetches the platform-appropriate zip from the
+CDN (with a GitHub Releases fallback), verifies its SHA256 checksum, caches it
+under `footsiesgym/binaries/`, and extracts it into this directory.
+
+The notes below are only needed if you want to launch game servers manually
+(e.g., on macOS, where auto-launch is not supported, or to run a windowed
+build).
+
+## Linux
+
+Zips are cached in `footsiesgym/binaries/` after the first run (or download
+them from the URLs in `footsiesgym/binary_manager.py`). Unpack the one you
+want and launch:
+
+```bash
+unzip footsiesgym/binaries/footsies_linux_headless_9c6b36f.zip -d binaries/
+chmod +x binaries/footsies_linux_headless_9c6b36f/footsies.x86_64
+./binaries/footsies_linux_headless_9c6b36f/footsies.x86_64 --port <YOUR_DESIRED_PORT>
 ```
 
-Or, for a full experiment, you can launch a fleet of servers for training and evaluation with::
+For a full experiment, launch a fleet of training and evaluation servers:
 
-```
+```bash
 ./scripts/start_local_linux_servers.sh <NUM_TRAINING_SERVERS> <NUM_EVAL_SERVERS>
 ```
 
-The default experiment is set to run 40 training servers and 5 evaluation servers. Adjust as needed (both the launch commmand as well as the settings in the `Experiment` itself).
+When done, run `./scripts/kill_local_linux_servers.sh` to clean up all running
+processes.
 
-When done, you can run `./scripts/kill_local_linux_servers.sh` to clean up all running processes.
+## macOS
 
+Tested on Apple Silicon (M3). gRPC (specifically Grpc.Core) is not compatible
+with Apple Silicon natively, so the builds run under Rosetta:
 
-# Mac
+```bash
+# Windowed build
+arch -x86_64 footsies_mac_windowed_5709b6d.app/Contents/MacOS/FOOTSIES --port <YOUR_DESIRED_PORT>
 
-This has only been tested using an M3 chip. Unfortunately, gRPC (specifically Grpc.Core) is not compatible with Silicon Macs, so we have to do some workarounds in order to use the exact workflow from Linux. Download and unzip the Mac build that you're interested in using and run the game servers with:
-
- ```
- # Windowed Build
- arch --x86_64 footsies_mac_windowed_5709b6d.app/Contents/MacOS/FOOTSIES --port <YOUR_DESIRED_PORT>
-
- # Headless Server
- arch -x86_64 footsies_mac_headless_5709b6d/FOOTSIES --port <YOUR_DESIRED_PORT>
- ```
-
- The ports will default to 50051.
-
- If you run into an error on Mac that says "This will damage your computer," you may need to run (specifically for the headless build):
-
+# Headless server
+arch -x86_64 footsies_mac_headless_5709b6d/FOOTSIES --port <YOUR_DESIRED_PORT>
 ```
-codesign --force --deep --sign - /footsies_mac_headless_5709b6d/FOOTSIES
+
+Ports default to 50051.
+
+If macOS reports "This will damage your computer" (typically for the headless
+build), re-sign the binary:
+
+```bash
+codesign --force --deep --sign - footsies_mac_headless_5709b6d/FOOTSIES
 ```

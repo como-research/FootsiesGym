@@ -15,10 +15,7 @@ import pytest
 from footsiesgym.footsies import encoder
 from footsiesgym.footsies.game import constants
 from footsiesgym.footsies.game.footsies_game import FootsiesGame
-from footsiesgym.footsies.game.proto import (
-    footsies_service_pb2 as pb2,
-)
-
+from footsiesgym.footsies.game.proto import footsies_service_pb2 as pb2
 
 # ── Action space construction ────────────────────────────────────
 
@@ -27,18 +24,14 @@ class TestActionSpaceConstruction:
     def test_base_action_space(self):
         from footsiesgym.footsies.footsies_env import FootsiesEnv
 
-        spaces = FootsiesEnv.get_action_space(
-            use_special_charge_action=False
-        )
+        spaces = FootsiesEnv.get_action_space(use_special_charge_action=False)
         for agent in ["p1", "p2"]:
             assert spaces[agent].n == 6
 
     def test_expanded_action_space(self):
         from footsiesgym.footsies.footsies_env import FootsiesEnv
 
-        spaces = FootsiesEnv.get_action_space(
-            use_special_charge_action=True
-        )
+        spaces = FootsiesEnv.get_action_space(use_special_charge_action=True)
         for agent in ["p1", "p2"]:
             assert spaces[agent].n == 9
 
@@ -128,22 +121,10 @@ class TestLUTBoundaries:
         """While holding special, movement → directional attack."""
         lut = constants.CHARGE_ACTION_LUT
         assert lut[constants.EnvActions.NONE] == constants.EnvActions.ATTACK
-        assert (
-            lut[constants.EnvActions.BACK]
-            == constants.EnvActions.BACK_ATTACK
-        )
-        assert (
-            lut[constants.EnvActions.FORWARD]
-            == constants.EnvActions.FORWARD_ATTACK
-        )
-        assert (
-            lut[constants.EnvActions.ATTACK]
-            == constants.EnvActions.ATTACK
-        )
-        assert (
-            lut[constants.EnvActions.BACK_ATTACK]
-            == constants.EnvActions.BACK_ATTACK
-        )
+        assert lut[constants.EnvActions.BACK] == constants.EnvActions.BACK_ATTACK
+        assert lut[constants.EnvActions.FORWARD] == constants.EnvActions.FORWARD_ATTACK
+        assert lut[constants.EnvActions.ATTACK] == constants.EnvActions.ATTACK
+        assert lut[constants.EnvActions.BACK_ATTACK] == constants.EnvActions.BACK_ATTACK
         assert (
             lut[constants.EnvActions.FORWARD_ATTACK]
             == constants.EnvActions.FORWARD_ATTACK
@@ -183,35 +164,25 @@ class TestSpecialChargeResolution:
 
         for action in range(6):
             with pytest.raises(ValueError):
-                FootsiesEnv._convert_special_charge_to_base_action(
-                    action
-                )
+                FootsiesEnv._convert_special_charge_to_base_action(action)
 
     def test_convert_to_charge_action(self):
         from footsiesgym.footsies.footsies_env import FootsiesEnv
 
         assert (
-            FootsiesEnv._convert_to_charge_action(
-                constants.EnvActions.BACK
-            )
+            FootsiesEnv._convert_to_charge_action(constants.EnvActions.BACK)
             == constants.EnvActions.BACK_ATTACK
         )
         assert (
-            FootsiesEnv._convert_to_charge_action(
-                constants.EnvActions.FORWARD
-            )
+            FootsiesEnv._convert_to_charge_action(constants.EnvActions.FORWARD)
             == constants.EnvActions.FORWARD_ATTACK
         )
         assert (
-            FootsiesEnv._convert_to_charge_action(
-                constants.EnvActions.NONE
-            )
+            FootsiesEnv._convert_to_charge_action(constants.EnvActions.NONE)
             == constants.EnvActions.ATTACK
         )
         assert (
-            FootsiesEnv._convert_to_charge_action(
-                constants.EnvActions.ATTACK
-            )
+            FootsiesEnv._convert_to_charge_action(constants.EnvActions.ATTACK)
             == constants.EnvActions.ATTACK
         )
 
@@ -239,28 +210,20 @@ class TestSpecialChargeResolution:
         # Toggle holding state for special charge actions
         is_special = (
             (to_exec == constants.EnvActions.SPECIAL_CHARGE)
-            | (
-                to_exec
-                == constants.EnvActions.FORWARD_SPECIAL_CHARGE
-            )
-            | (
-                to_exec
-                == constants.EnvActions.BACK_SPECIAL_CHARGE
-            )
+            | (to_exec == constants.EnvActions.FORWARD_SPECIAL_CHARGE)
+            | (to_exec == constants.EnvActions.BACK_SPECIAL_CHARGE)
         )
         holding[is_special] = ~holding[is_special]
 
         # Convert special charge actions to base movement
         base = to_exec.copy()
-        base[
-            to_exec == constants.EnvActions.SPECIAL_CHARGE
-        ] = constants.EnvActions.NONE
-        base[
-            to_exec == constants.EnvActions.FORWARD_SPECIAL_CHARGE
-        ] = constants.EnvActions.FORWARD
-        base[
-            to_exec == constants.EnvActions.BACK_SPECIAL_CHARGE
-        ] = constants.EnvActions.BACK
+        base[to_exec == constants.EnvActions.SPECIAL_CHARGE] = constants.EnvActions.NONE
+        base[to_exec == constants.EnvActions.FORWARD_SPECIAL_CHARGE] = (
+            constants.EnvActions.FORWARD
+        )
+        base[to_exec == constants.EnvActions.BACK_SPECIAL_CHARGE] = (
+            constants.EnvActions.BACK
+        )
         to_exec[is_special] = base[is_special]
 
         # Verify all actions are now base (0-5)
@@ -290,9 +253,7 @@ class TestSpecialChargeResolution:
         # Apply charge conversion for held envs
         held = holding
         if held.any():
-            to_exec[held] = constants.CHARGE_ACTION_LUT[
-                to_exec[held]
-            ]
+            to_exec[held] = constants.CHARGE_ACTION_LUT[to_exec[held]]
 
         # All actions should still be base (0-5)
         assert to_exec.max() <= constants.EnvActions.FORWARD_ATTACK
@@ -432,52 +393,36 @@ def _build_game_state_from_raw(raw, idx):
     """Extract a single-env GameState from BatchRawState."""
     gs = pb2.GameState()
     for prefix, player in [("p1", gs.player1), ("p2", gs.player2)]:
-        player.player_position_x = getattr(
-            raw, f"{prefix}_position_x"
-        )[idx]
-        player.velocity_x = getattr(raw, f"{prefix}_velocity_x")[
+        player.player_position_x = getattr(raw, f"{prefix}_position_x")[idx]
+        player.velocity_x = getattr(raw, f"{prefix}_velocity_x")[idx]
+        player.is_dead = getattr(raw, f"{prefix}_is_dead")[idx]
+        player.vital_health = getattr(raw, f"{prefix}_vital_health")[idx]
+        player.guard_health = getattr(raw, f"{prefix}_guard_health")[idx]
+        player.current_action_id = getattr(raw, f"{prefix}_current_action_id")[idx]
+        player.current_action_frame = getattr(raw, f"{prefix}_current_action_frame")[
             idx
         ]
-        player.is_dead = getattr(raw, f"{prefix}_is_dead")[idx]
-        player.vital_health = getattr(
-            raw, f"{prefix}_vital_health"
-        )[idx]
-        player.guard_health = getattr(
-            raw, f"{prefix}_guard_health"
-        )[idx]
-        player.current_action_id = getattr(
-            raw, f"{prefix}_current_action_id"
-        )[idx]
-        player.current_action_frame = getattr(
-            raw, f"{prefix}_current_action_frame"
-        )[idx]
         player.current_action_frame_count = getattr(
             raw, f"{prefix}_current_action_frame_count"
         )[idx]
-        player.is_action_end = getattr(
-            raw, f"{prefix}_is_action_end"
-        )[idx]
-        player.is_always_cancelable = getattr(
-            raw, f"{prefix}_is_always_cancelable"
-        )[idx]
+        player.is_action_end = getattr(raw, f"{prefix}_is_action_end")[idx]
+        player.is_always_cancelable = getattr(raw, f"{prefix}_is_always_cancelable")[
+            idx
+        ]
         player.current_action_hit_count = getattr(
             raw, f"{prefix}_current_action_hit_count"
         )[idx]
         player.current_hit_stun_frame = getattr(
             raw, f"{prefix}_current_hit_stun_frame"
         )[idx]
-        player.is_in_hit_stun = getattr(
-            raw, f"{prefix}_is_in_hit_stun"
-        )[idx]
-        player.sprite_shake_position = getattr(
-            raw, f"{prefix}_sprite_shake_position"
-        )[idx]
+        player.is_in_hit_stun = getattr(raw, f"{prefix}_is_in_hit_stun")[idx]
+        player.sprite_shake_position = getattr(raw, f"{prefix}_sprite_shake_position")[
+            idx
+        ]
         player.max_sprite_shake_frame = getattr(
             raw, f"{prefix}_max_sprite_shake_frame"
         )[idx]
-        player.is_face_right = getattr(
-            raw, f"{prefix}_is_face_right"
-        )[idx]
+        player.is_face_right = getattr(raw, f"{prefix}_is_face_right")[idx]
         player.current_frame_advantage = getattr(
             raw, f"{prefix}_current_frame_advantage"
         )[idx]
@@ -541,12 +486,8 @@ class TestEncoderActionSpaces:
         hold_p1 = rng.choice([True, False], N)
         hold_p2 = rng.choice([True, False], N)
 
-        vec_enc = encoder.VectorizedEncoder(
-            num_actions=num_actions
-        )
-        vec_result = vec_enc.encode(
-            raw, prev_p1, prev_p2, hold_p1, hold_p2
-        )
+        vec_enc = encoder.VectorizedEncoder(num_actions=num_actions)
+        vec_result = vec_enc.encode(raw, prev_p1, prev_p2, hold_p1, hold_p2)
 
         scalar_enc = encoder.FootsiesEncoder()
         for i in range(N):
@@ -569,19 +510,13 @@ class TestEncoderActionSpaces:
                 vec_result["p1"][i],
                 scalar_result["p1"],
                 atol=1e-6,
-                err_msg=(
-                    f"p1 mismatch at env {i} "
-                    f"(num_actions={num_actions})"
-                ),
+                err_msg=(f"p1 mismatch at env {i} " f"(num_actions={num_actions})"),
             )
             np.testing.assert_allclose(
                 vec_result["p2"][i],
                 scalar_result["p2"],
                 atol=1e-6,
-                err_msg=(
-                    f"p2 mismatch at env {i} "
-                    f"(num_actions={num_actions})"
-                ),
+                err_msg=(f"p2 mismatch at env {i} " f"(num_actions={num_actions})"),
             )
 
     def test_prev_action_one_hot_6_actions(self):
@@ -637,9 +572,7 @@ class TestEncoderActionSpaces:
                 np.array([False]),
                 np.array([False]),
             )
-            one_hot = result["p1"][
-                0, prev_action_start : prev_action_start + 9
-            ]
+            one_hot = result["p1"][0, prev_action_start : prev_action_start + 9]
             assert one_hot[action] == 1.0
             assert one_hot.sum() == 1.0
 
@@ -674,9 +607,7 @@ class TestPrevActionEncoding:
     matching the Unity C# WritePlayerFull layout."""
 
     @pytest.mark.parametrize("num_actions", [6, 9])
-    def test_vectorized_batch_prev_action_roundtrip(
-        self, num_actions
-    ):
+    def test_vectorized_batch_prev_action_roundtrip(self, num_actions):
         """Pass a batch of distinct prev_actions through the
         vectorized encoder and verify each env's observation has
         the correct one-hot at the right offset."""
@@ -690,9 +621,7 @@ class TestPrevActionEncoding:
         hold_p1 = np.zeros(N, dtype=bool)
         hold_p2 = np.zeros(N, dtype=bool)
 
-        result = enc.encode(
-            raw, prev_p1, prev_p2, hold_p1, hold_p2
-        )
+        result = enc.encode(raw, prev_p1, prev_p2, hold_p1, hold_p2)
 
         pa_start = _prev_action_offset(num_actions)
         pa_end = pa_start + num_actions
@@ -700,12 +629,11 @@ class TestPrevActionEncoding:
         for i in range(N):
             one_hot = result["p1"][i, pa_start:pa_end]
             # Exactly one slot active
-            assert one_hot.sum() == pytest.approx(1.0), (
-                f"env {i}: one-hot sum={one_hot.sum()}"
-            )
+            assert one_hot.sum() == pytest.approx(
+                1.0
+            ), f"env {i}: one-hot sum={one_hot.sum()}"
             assert one_hot[i] == pytest.approx(1.0), (
-                f"env {i}: expected slot {i} active, "
-                f"got {one_hot}"
+                f"env {i}: expected slot {i} active, " f"got {one_hot}"
             )
             # All other slots zero
             for j in range(num_actions):
@@ -713,9 +641,7 @@ class TestPrevActionEncoding:
                     assert one_hot[j] == pytest.approx(0.0)
 
     @pytest.mark.parametrize("num_actions", [6, 9])
-    def test_scalar_batch_prev_action_roundtrip(
-        self, num_actions
-    ):
+    def test_scalar_batch_prev_action_roundtrip(self, num_actions):
         """Same roundtrip test using the scalar FootsiesEncoder."""
         enc = encoder.FootsiesEncoder()
         raw = _make_batch_raw_state(1, np.random.RandomState(22))
@@ -812,9 +738,7 @@ class TestPrevActionEncoding:
         )
 
     @pytest.mark.parametrize("num_actions", [6, 9])
-    def test_special_charge_prev_actions_encoded(
-        self, num_actions
-    ):
+    def test_special_charge_prev_actions_encoded(self, num_actions):
         """When num_actions=9, special charge actions (6-8) used
         as prev_action produce valid one-hot encoding."""
         if num_actions < 9:
@@ -874,9 +798,7 @@ class TestHoldingSpecialEncoding:
         # Check p1's self-block in p1-centric obs
         for i in range(N):
             expected = 1.0 if hold_p1[i] else 0.0
-            assert result["p1"][i, hs_offset] == pytest.approx(
-                expected
-            ), (
+            assert result["p1"][i, hs_offset] == pytest.approx(expected), (
                 f"p1 env {i}: expected holding_special="
                 f"{expected}, got {result['p1'][i, hs_offset]}"
             )
@@ -884,17 +806,13 @@ class TestHoldingSpecialEncoding:
         # Check p2's self-block in p2-centric obs
         for i in range(N):
             expected = 1.0 if hold_p2[i] else 0.0
-            assert result["p2"][i, hs_offset] == pytest.approx(
-                expected
-            ), (
+            assert result["p2"][i, hs_offset] == pytest.approx(expected), (
                 f"p2 env {i}: expected holding_special="
                 f"{expected}, got {result['p2'][i, hs_offset]}"
             )
 
     @pytest.mark.parametrize("num_actions", [6, 9])
-    def test_holding_special_not_in_opponent_view(
-        self, num_actions
-    ):
+    def test_holding_special_not_in_opponent_view(self, num_actions):
         """holding_special is privileged — changing it should not
         affect the opponent's view of this player."""
         N = 1
@@ -953,9 +871,7 @@ class TestHoldingSpecialEncoding:
             enc.reset()
 
             expected = 1.0 if holding else 0.0
-            assert result["p1"][hs_offset] == pytest.approx(
-                expected
-            )
+            assert result["p1"][hs_offset] == pytest.approx(expected)
 
     @pytest.mark.parametrize("num_actions", [6, 9])
     def test_prev_action_and_holding_jointly(self, num_actions):

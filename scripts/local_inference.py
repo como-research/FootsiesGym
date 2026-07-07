@@ -8,7 +8,7 @@ from ray.rllib.utils import policy as rllib_policy_utils
 from ray.rllib.utils import typing as rllib_typing
 from scipy import special
 
-from experimentation.components import module_repository
+from experimentation.experiments.rllib.components import module_repository
 from footsiesgym.footsies import footsies_env
 from footsiesgym.footsies.game.constants import EnvActions
 
@@ -34,8 +34,8 @@ if "human" in MODULES.values():
 
 if "footsies_bot" in MODULES.values():
     from footsiesgym.footsies.game import footsies_bot as footsies_bot_
-    footsies_bot = footsies_bot_.FootsiesBot(frame_skip=4)
 
+    footsies_bot = footsies_bot_.FootsiesBot(frame_skip=4)
 
 
 def get_human_action() -> int:
@@ -91,22 +91,22 @@ def play_local_episode(
             else:
                 if frame % MODEL_FRAME_SKIP == 0:
                     if MODULES[agent_id] == "random":
-                        last_actions[agent_id] = env.action_space[
-                            agent_id
-                        ].sample()
+                        last_actions[agent_id] = env.action_space[agent_id].sample()
                     elif MODULES[agent_id] == "noop":
                         last_actions[agent_id] = EnvActions.NONE
                     elif MODULES[agent_id] == "footsies_bot":
-                        last_actions[agent_id] = footsies_bot.get_next_input(env_id="local_env", agent_id=agent_id, fight_state_dict=infos[agent_id])
-                    else:
-                        action, _, fetch = (
-                            rllib_policy_utils.local_policy_inference(
-                                modules[agent_id],
-                                env_id="local_env",
-                                agent_id=agent_id,
-                                obs=obs,
-                            )[0]
+                        last_actions[agent_id] = footsies_bot.get_next_input(
+                            env_id="local_env",
+                            agent_id=agent_id,
+                            fight_state_dict=infos[agent_id],
                         )
+                    else:
+                        action, _, fetch = rllib_policy_utils.local_policy_inference(
+                            modules[agent_id],
+                            env_id="local_env",
+                            agent_id=agent_id,
+                            obs=obs,
+                        )[0]
                         last_actions[agent_id] = action
                 actions[agent_id] = last_actions[agent_id]
         frame += 1
@@ -163,8 +163,12 @@ def main():
             f"{num_games} games played. {MODULES['p1']} winrate: {np.round(cumulative_results['p1_win'] / num_games, 2)}"
         )
         if cumulative_results["p2_win"] > 0:
-            death_prop_atk_normalized = {k: v / cumulative_results["p2_win"] for k, v in DEATH_PROP_ATK.items()}
-            death_prop_move_normalized = {k: v / cumulative_results["p2_win"] for k, v in DEATH_PROP_MOVE.items()}
+            death_prop_atk_normalized = {
+                k: v / cumulative_results["p2_win"] for k, v in DEATH_PROP_ATK.items()
+            }
+            death_prop_move_normalized = {
+                k: v / cumulative_results["p2_win"] for k, v in DEATH_PROP_MOVE.items()
+            }
             print(f"Death prop atk: {death_prop_atk_normalized}")
             print(f"Death prop move: {death_prop_move_normalized}")
         else:

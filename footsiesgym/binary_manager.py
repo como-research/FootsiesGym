@@ -3,6 +3,7 @@ Binary manager for FootsiesGym - handles automatic binary downloads.
 """
 
 import hashlib
+import logging
 import os
 import shutil
 import sys
@@ -11,6 +12,8 @@ import urllib.request
 import zipfile
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 if sys.platform == "win32":
     import msvcrt
@@ -35,8 +38,7 @@ class BinaryManager:
 
     # Fallback URLs in case primary fails
     FALLBACK_URLS = [
-        "https://github.com/chasemcd/FootsiesGym/raw/main/binaries",
-        "https://raw.githubusercontent.com/chasemcd/FootsiesGym/main/binaries",
+        "https://github.com/como-research/FootsiesGym/releases/download/binaries-v1",
     ]
 
     BINARY_FILES = {
@@ -82,7 +84,7 @@ class BinaryManager:
                 missing_files.append(filename)
 
         if not missing_files:
-            print(f"✅ All {platform} binaries are available")
+            logger.debug("All %s binaries are available", platform)
             return True
 
         # Use file locking to prevent multiple processes from downloading simultaneously
@@ -91,7 +93,7 @@ class BinaryManager:
         try:
             # Create lock file and acquire exclusive lock
             with open(lock_file, "w") as lock_fd:
-                print(f"🔒 Acquiring download lock for {platform} binaries...")
+                logger.info("Acquiring download lock for %s binaries...", platform)
                 _flock(lock_fd.fileno())
 
                 # Re-check if files exist after acquiring lock (another process might have downloaded them)
@@ -102,13 +104,16 @@ class BinaryManager:
                         missing_files.append(filename)
 
                 if not missing_files:
-                    print(
-                        f"✅ All {platform} binaries are now available (downloaded by another process)"
+                    logger.info(
+                        "All %s binaries are now available (downloaded by another process)",
+                        platform,
                     )
                     return True
 
-                print(
-                    f"📥 Downloading missing {platform} binaries: {missing_files}"
+                logger.info(
+                    "Downloading missing %s binaries: %s",
+                    platform,
+                    missing_files,
                 )
 
                 # Download missing files
@@ -117,18 +122,18 @@ class BinaryManager:
                     if not self._download_binary(filename):
                         success = False
 
-                print(f"🔓 Releasing download lock for {platform} binaries")
+                logger.debug("Releasing download lock for %s binaries", platform)
                 return success
 
-        except Exception as e:
-            print(f"❌ Error during binary download: {e}")
+        except Exception:
+            logger.exception("Error during binary download")
             return False
         finally:
             # Clean up lock file
             try:
                 if lock_file.exists():
                     lock_file.unlink()
-            except:
+            except OSError:
                 pass  # Ignore cleanup errors
 
     def ensure_binaries_extracted(
@@ -154,17 +159,17 @@ class BinaryManager:
 
         # Use separate directories for headless vs windowed binaries
         binary_subdir = (
-            "footsies_binaries_headless"
-            if headless
-            else "footsies_binaries_windowed"
+            "footsies_binaries_headless" if headless else "footsies_binaries_windowed"
         )
         binary_path = os.path.join(target_dir, binary_subdir, "footsies.x86_64")
 
         # Check if extracted binaries already exist
         if os.path.exists(binary_path):
-            binary_type = "headless" if headless else "windowed"
-            print(
-                f"✅ Extracted {platform} {binary_type} binaries already available at {target_dir}"
+            logger.debug(
+                "Extracted %s %s binaries already available at %s",
+                platform,
+                "headless" if headless else "windowed",
+                target_dir,
             )
             return True
 
@@ -174,22 +179,21 @@ class BinaryManager:
         try:
             # Create lock file and acquire exclusive lock
             with open(lock_file, "w") as lock_fd:
-                print(
-                    f"🔒 Acquiring extraction lock for {platform} binaries..."
-                )
+                logger.info("Acquiring extraction lock for %s binaries...", platform)
                 _flock(lock_fd.fileno())
 
                 # Re-check if extracted binaries exist after acquiring lock
                 if os.path.exists(binary_path):
-                    binary_type = "headless" if headless else "windowed"
-                    print(
-                        f"✅ Extracted {platform} {binary_type} binaries now available (extracted by another process)"
+                    logger.info(
+                        "Extracted %s %s binaries now available (extracted by another process)",
+                        platform,
+                        "headless" if headless else "windowed",
                     )
                     return True
 
                 # First ensure the zip files are downloaded
                 if not self.ensure_binaries_available(platform):
-                    print(f"❌ Failed to download {platform} binaries")
+                    logger.error("Failed to download %s binaries", platform)
                     return False
 
                 # Get the appropriate zip file
@@ -208,12 +212,10 @@ class BinaryManager:
 
                 zip_path = self.binaries_dir / zip_filename
                 if not zip_path.exists():
-                    print(
-                        f"❌ Zip file {zip_filename} not found after download"
-                    )
+                    logger.error("Zip file %s not found after download", zip_filename)
                     return False
 
-                print(f"📦 Extracting {zip_filename} to {target_dir}...")
+                logger.info("Extracting %s to %s...", zip_filename, target_dir)
 
                 # Create target directory
                 os.makedirs(target_dir, exist_ok=True)
@@ -222,8 +224,8 @@ class BinaryManager:
                 try:
                     with zipfile.ZipFile(zip_path, "r") as zip_ref:
                         zip_ref.extractall(target_dir)
-                except Exception as e:
-                    print(f"❌ Failed to extract {zip_filename}: {e}")
+                except Exception:
+                    logger.exception("Failed to extract %s", zip_filename)
                     return False
 
                 # Find the extracted folder and rename it to footsies_binaries
@@ -250,33 +252,31 @@ class BinaryManager:
                         shutil.rmtree(new_path)
 
                     os.rename(old_path, new_path)
-                    binary_type = "headless" if headless else "windowed"
-                    print(
-                        f"📁 Renamed {extracted_folder} to {binary_subdir} ({binary_type})"
-                    )
+                    logger.debug("Renamed %s to %s", extracted_folder, binary_subdir)
 
                 # Verify the binary now exists
                 if not os.path.exists(binary_path):
-                    print(
-                        f"❌ Failed to find binary at {binary_path} after extraction"
+                    logger.error(
+                        "Failed to find binary at %s after extraction",
+                        binary_path,
                     )
                     return False
 
                 # Make binary executable
                 os.chmod(binary_path, 0o755)
 
-                print(f"🔓 Releasing extraction lock for {platform} binaries")
+                logger.debug("Releasing extraction lock for %s binaries", platform)
                 return True
 
-        except Exception as e:
-            print(f"❌ Error during binary extraction: {e}")
+        except Exception:
+            logger.exception("Error during binary extraction")
             return False
         finally:
             # Clean up lock file
             try:
                 if lock_file.exists():
                     lock_file.unlink()
-            except:
+            except OSError:
                 pass  # Ignore cleanup errors
 
     def _get_required_files(self, platform: str) -> list[str]:
@@ -319,20 +319,21 @@ class BinaryManager:
 
         actual_hash = sha256.hexdigest()
         if actual_hash != expected_hash:
-            print(
-                f"  ❌ Hash mismatch for {filename}:\n"
-                f"     expected {expected_hash}\n"
-                f"     got      {actual_hash}"
+            logger.error(
+                "Hash mismatch for %s: expected %s, got %s",
+                filename,
+                expected_hash,
+                actual_hash,
             )
             file_path.unlink(missing_ok=True)
             return False
 
-        print(f"  ✅ Hash verified for {filename}")
+        logger.debug("Hash verified for %s", filename)
         return True
 
     def _download_binary(self, filename: str) -> bool:
         """
-        Get a binary file by copying from local repository or downloading from HTTP.
+        Download a binary file over HTTP, verifying its SHA256 hash.
 
         Args:
             filename: Name of the file to download
@@ -342,39 +343,17 @@ class BinaryManager:
         """
         local_path = self.binaries_dir / filename
 
-        # First, try to find the file in the local repository
-        # Look for it in the parent directory structure
-        repo_binaries_path = (
-            self.package_dir.parent / "footsiesgym" / "binaries" / filename
-        )
-
-        if repo_binaries_path.exists():
-            try:
-                print(f"  Copying {filename} from local repository...")
-                import shutil
-
-                shutil.copy2(repo_binaries_path, local_path)
-                print(
-                    f"  ✅ Copied {filename} ({local_path.stat().st_size} bytes)"
-                )
-                if not self._verify_hash(filename):
-                    return False
-                return True
-            except Exception as e:
-                print(f"  ❌ Failed to copy from local repository: {e}")
-
-        # If local copy fails, try HTTP download as fallback
         urls_to_try = [self.DOWNLOAD_BASE_URL] + self.FALLBACK_URLS
 
         for base_url in urls_to_try:
             url = f"{base_url}/{filename}"
 
             try:
-                print(f"  Downloading {filename} from {base_url}...")
+                logger.info("Downloading %s from %s...", filename, base_url)
 
                 # Create request with user agent to avoid blocking
                 request = urllib.request.Request(url)
-                request.add_header("User-Agent", "FootsiesGym/0.7.0")
+                request.add_header("User-Agent", "FootsiesGym/0.7.2")
 
                 with urllib.request.urlopen(request, timeout=30) as response:
                     # Check if we got a valid response
@@ -387,27 +366,29 @@ class BinaryManager:
                                     break
                                 f.write(chunk)
 
-                        print(
-                            f"  ✅ Downloaded {filename} ({local_path.stat().st_size} bytes)"
+                        logger.info(
+                            "Downloaded %s (%d bytes)",
+                            filename,
+                            local_path.stat().st_size,
                         )
                         if not self._verify_hash(filename):
                             continue
                         return True
                     else:
-                        print(f"  ❌ HTTP {response.status} from {base_url}")
+                        logger.warning("HTTP %s from %s", response.status, base_url)
                         continue
 
             except urllib.error.HTTPError as e:
-                print(f"  ❌ HTTP error {e.code} from {base_url}: {e.reason}")
+                logger.warning("HTTP error %s from %s: %s", e.code, base_url, e.reason)
                 continue
             except urllib.error.URLError as e:
-                print(f"  ❌ URL error from {base_url}: {e.reason}")
+                logger.warning("URL error from %s: %s", base_url, e.reason)
                 continue
-            except Exception as e:
-                print(f"  ❌ Unexpected error from {base_url}: {e}")
+            except Exception:
+                logger.exception("Unexpected error from %s", base_url)
                 continue
 
-        print(f"  ❌ Failed to get {filename} from all sources")
+        logger.error("Failed to get %s from all sources", filename)
         return False
 
     def get_binary_path(

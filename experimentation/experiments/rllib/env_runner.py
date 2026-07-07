@@ -15,9 +15,7 @@ import numpy as np
 from ray.rllib.callbacks.utils import make_callback
 from ray.rllib.env.env_context import EnvContext
 from ray.rllib.env.multi_agent_env_runner import MultiAgentEnvRunner
-from ray.rllib.env.vector.vector_multi_agent_env import (
-    VectorMultiAgentEnv,
-)
+from ray.rllib.env.vector.vector_multi_agent_env import VectorMultiAgentEnv
 from ray.rllib.utils.typing import AgentID
 
 from footsiesgym.footsies.footsies_env import FootsiesEnv
@@ -81,9 +79,7 @@ class FootsiesVectorEnv(VectorMultiAgentEnv):
 
         self.single_observation_spaces = {a: obs_space for a in possible}
         self.single_action_spaces = {a: act_space for a in possible}
-        self.single_observation_space = gym.spaces.Dict(
-            self.single_observation_spaces
-        )
+        self.single_observation_space = gym.spaces.Dict(self.single_observation_spaces)
         self.single_action_space = gym.spaces.Dict(self.single_action_spaces)
         # Old API compat attributes.
         self.observation_space = self.single_observation_space
@@ -97,8 +93,7 @@ class FootsiesVectorEnv(VectorMultiAgentEnv):
         obs_spaces = {a: obs_space for a in possible}
         act_spaces = {a: act_space for a in possible}
         self.envs = [
-            _SubEnvProxy(possible, obs_spaces, act_spaces)
-            for _ in range(self.num_envs)
+            _SubEnvProxy(possible, obs_spaces, act_spaces) for _ in range(self.num_envs)
         ]
 
     # ── reset ─────────────────────────────────────────────────
@@ -153,26 +148,26 @@ class FootsiesVectorEnv(VectorMultiAgentEnv):
         infos = []
 
         for i in range(N):
-            observations.append(
-                {a: obs_dict[a][i] for a in ("p1", "p2")}
-            )
-            rewards.append(
-                {a: float(rew_dict[a][i]) for a in ("p1", "p2")}
-            )
+            observations.append({a: obs_dict[a][i] for a in ("p1", "p2")})
+            rewards.append({a: float(rew_dict[a][i]) for a in ("p1", "p2")})
             p1_term = bool(term_dict["p1"][i])
             p2_term = bool(term_dict["p2"][i])
             p1_trunc = bool(trunc_dict["p1"][i])
             p2_trunc = bool(trunc_dict["p2"][i])
-            terminateds.append({
-                "p1": p1_term,
-                "p2": p2_term,
-                "__all__": p1_term or p2_term,
-            })
-            truncateds.append({
-                "p1": p1_trunc,
-                "p2": p2_trunc,
-                "__all__": p1_trunc or p2_trunc,
-            })
+            terminateds.append(
+                {
+                    "p1": p1_term,
+                    "p2": p2_term,
+                    "__all__": p1_term or p2_term,
+                }
+            )
+            truncateds.append(
+                {
+                    "p1": p1_trunc,
+                    "p2": p2_trunc,
+                    "__all__": p1_trunc or p2_trunc,
+                }
+            )
             infos.append({"p1": {}, "p2": {}})
 
         return observations, rewards, terminateds, truncateds, infos

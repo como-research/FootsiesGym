@@ -9,9 +9,7 @@ flags.DEFINE_boolean("tune", False, "Tune mode flag")
 
 
 def main(*args, **kwargs):
-    print(
-        f"Starting experiment {FLAGS.experiment_name}, " f"Tuning: {FLAGS.tune}"
-    )
+    print(f"Starting experiment {FLAGS.experiment_name}, " f"Tuning: {FLAGS.tune}")
     experiment_rlmodule.Experiment(
         config={
             "debug": FLAGS.debug,

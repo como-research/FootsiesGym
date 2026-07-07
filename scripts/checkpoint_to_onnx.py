@@ -7,7 +7,7 @@ from ray.rllib.utils.framework import try_import_torch
 from ray.rllib.utils.test_utils import add_rllib_example_script_args, check
 from ray.rllib.utils.torch_utils import convert_to_torch_tensor
 
-from experimentation.components import module_repository
+from experimentation.experiments.rllib.components import module_repository
 
 torch, _ = try_import_torch()
 
@@ -46,17 +46,15 @@ def run(policy):
     B = 1
     T = 1
     LSTM_CELL = restored_policy_0._state_inputs[0].shape[0]
-    INPUT_SHAPE = restored_policy_0._get_default_view_requirements()[
-        "obs"
-    ].space.shape[0]
+    INPUT_SHAPE = restored_policy_0._get_default_view_requirements()["obs"].space.shape[
+        0
+    ]
 
     print(INPUT_SHAPE)
 
     # Input data for a python inference forward call.
     test_data_python = {
-        "obs": np.random.uniform(0, 1.0, size=(B * T, INPUT_SHAPE)).astype(
-            np.float32
-        ),
+        "obs": np.random.uniform(0, 1.0, size=(B * T, INPUT_SHAPE)).astype(np.float32),
         "state_ins": [
             np.random.uniform(0, 1.0, size=(B, LSTM_CELL)).astype(np.float32),
             np.random.uniform(0, 1.0, size=(B, LSTM_CELL)).astype(np.float32),

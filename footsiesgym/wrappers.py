@@ -16,9 +16,7 @@ def wrap_rllib(env):
         ImportError: If ray[rllib] is not installed.
     """
     try:
-        from ray.rllib.env.wrappers.pettingzoo_env import (
-            ParallelPettingZooEnv,
-        )
+        from ray.rllib.env.wrappers.pettingzoo_env import ParallelPettingZooEnv
     except ImportError:
         raise ImportError(
             "ray[rllib] is required to use the RLlib wrapper. "
@@ -26,17 +24,6 @@ def wrap_rllib(env):
         )
 
     return ParallelPettingZooEnv(env)
-
-
-def parse_agent_id(agent_id: str) -> tuple[str, int]:
-    """Parse an indexed agent ID like 'p1_3' into ('p1', 3).
-
-    For non-indexed IDs like 'p1', returns ('p1', 0).
-    """
-    if "_" in agent_id:
-        base, idx = agent_id.rsplit("_", 1)
-        return base, int(idx)
-    return agent_id, 0
 
 
 def _get_vectorized_env_class():
@@ -82,9 +69,7 @@ def _get_vectorized_env_class():
             self.action_space = act_space
 
         def reset(self, *, seed=None, options=None):
-            obs_dict, _ = self.env.reset(
-                seed=seed, options=options
-            )
+            obs_dict, _ = self.env.reset(seed=seed, options=options)
 
             obs = {}
             infos = {}
@@ -106,10 +91,8 @@ def _get_vectorized_env_class():
                 if f"p2_{i}" in action_dict:
                     p2_actions[i] = action_dict[f"p2_{i}"]
 
-            obs_dict, rew_dict, term_dict, trunc_dict, _ = (
-                self.env.step(
-                    {"p1": p1_actions, "p2": p2_actions}
-                )
+            obs_dict, rew_dict, term_dict, trunc_dict, _ = self.env.step(
+                {"p1": p1_actions, "p2": p2_actions}
             )
 
             obs = {}
@@ -122,15 +105,9 @@ def _get_vectorized_env_class():
                 for prefix in ["p1", "p2"]:
                     aid = f"{prefix}_{i}"
                     obs[aid] = obs_dict[prefix][i]
-                    rewards[aid] = float(
-                        rew_dict[prefix][i]
-                    )
-                    terminateds[aid] = bool(
-                        term_dict[prefix][i]
-                    )
-                    truncateds[aid] = bool(
-                        trunc_dict[prefix][i]
-                    )
+                    rewards[aid] = float(rew_dict[prefix][i])
+                    terminateds[aid] = bool(term_dict[prefix][i])
+                    truncateds[aid] = bool(trunc_dict[prefix][i])
                     infos[aid] = {}
 
             terminateds["__all__"] = False

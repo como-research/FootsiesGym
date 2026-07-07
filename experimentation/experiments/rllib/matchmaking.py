@@ -30,9 +30,7 @@ class Matchmaker:
         self.probs = [matchup.prob for matchup in matchups]
         self.current_matchups = collections.defaultdict(dict)
 
-    def _map_agent(
-        self, agent_id: str, episode: EpisodeType
-    ) -> str:
+    def _map_agent(self, agent_id: str, episode: EpisodeType) -> str:
         """Core mapping logic shared by both API variants.
 
         Supports both plain agent IDs ('p1', 'p2') and indexed
@@ -40,24 +38,16 @@ class Matchmaker:
         are keyed per (episode, game_index) so each game instance
         gets an independent matchup sample.
         """
-        ep_id = (
-            episode.env_id
-            if hasattr(episode, "env_id")
-            else episode.id_
-        )
+        ep_id = episode.env_id if hasattr(episode, "env_id") else episode.id_
         base_agent, game_idx = _parse_agent_id(agent_id)
 
         # Compound key: unique per episode × game instance
         matchup_key = (ep_id, game_idx)
 
         if self.current_matchups.get(matchup_key) is None:
-            sampled_matchup = np.random.choice(
-                self.matchups, p=self.probs
-            )
+            sampled_matchup = np.random.choice(self.matchups, p=self.probs)
             policies = [sampled_matchup.p1, sampled_matchup.p2]
-            p1, p2 = np.random.choice(
-                policies, size=2, replace=False
-            )
+            p1, p2 = np.random.choice(policies, size=2, replace=False)
             self.current_matchups[matchup_key]["p1"] = p1
             self.current_matchups[matchup_key]["p2"] = p2
 
@@ -68,9 +58,7 @@ class Matchmaker:
 
         return pid
 
-    def policy_mapping_fn(
-        self, agent_id: str, episode: EpisodeType, **kwargs
-    ) -> str:
+    def policy_mapping_fn(self, agent_id: str, episode: EpisodeType, **kwargs) -> str:
         """Old API stack: policy_mapping_fn."""
         return self._map_agent(agent_id, episode)
 

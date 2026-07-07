@@ -17,7 +17,7 @@ pip install footsies-gym
 Or install from source:
 
 ```bash
-git clone https://github.com/chasemcd/FootsiesGym.git
+git clone https://github.com/como-research/FootsiesGym.git
 cd FootsiesGym
 pip install -e .
 ```
@@ -177,7 +177,7 @@ env = footsiesgym.make(
 
 ### Binary Management
 
-Binaries are automatically downloaded from a CDN (`footsiesgym.chasemcd.com`) on first use, with GitHub as a fallback source. All downloads are verified with SHA256 checksums. File locking prevents race conditions when multiple processes download simultaneously.
+Binaries are automatically downloaded from a CDN (`footsiesgym.chasemcd.com`) on first use, with [GitHub Releases](https://github.com/como-research/FootsiesGym/releases) as a fallback source. All downloads are verified with SHA256 checksums. File locking prevents race conditions when multiple processes download simultaneously.
 
 > **Offline usage:** The binaries must be downloaded at least once before running offline. The easiest way to ensure this is to run the environment once while online so the binaries are automatically downloaded and cached.
 
@@ -197,12 +197,22 @@ Training servers start from port 50051, evaluation servers from port 40051.
 
 ### Running Training
 
+Two RLlib training stacks are available: the newer RLModule-based stack and the
+legacy ModelV2-based stack.
+
 ```bash
-python -m experimentation.train --experiment-name <experiment-name>
+# RLModule stack (recommended)
+python -m experimentation.experiments.rllib.train_rlmodule --experiment-name <experiment-name>
+
+# Legacy ModelV2 stack
+python -m experimentation.experiments.rllib.train --experiment-name <experiment-name>
 
 # Local debug mode (single env runner)
-python -m experimentation.train --experiment-name <experiment-name> --debug
+python -m experimentation.experiments.rllib.train_rlmodule --experiment-name <experiment-name> --debug
 ```
+
+A self-contained [CleanRL PPO example](experimentation/experiments/cleanrl/) is
+also included.
 
 ## Visualizing a Policy
 
@@ -213,7 +223,7 @@ Note: these steps assume you're working out of this repository. If you've pip-in
    ./footsies_linux_windowed_9c6b36f --port 80051
    ```
 
-2. Register your trained policy in `components/module_repository.py`:
+2. Register your trained policy in `experimentation/experiments/rllib/components/module_repository.py`:
    ```python
    FootsiesModuleSpec(
        module_name="<policy-nickname>",
@@ -229,18 +239,19 @@ Note: these steps assume you're working out of this repository. If you've pip-in
 
 ```
 FootsiesGym/
-├── footsiesgym/           # Installable package
-│   ├── footsies/          # Core environment, encoder, gRPC client
-│   ├── binary_manager.py  # Binary download and hash verification
-│   └── __init__.py        # Package entry point with make()
-├── experimentation/       # Training configurations and scripts
-├── binaries/              # Game server binaries (downloaded automatically)
-├── callbacks/             # RLlib callbacks
-├── components/            # Module repository for policy management
-├── models/                # Neural network architectures
-├── scripts/               # Server launch and inference scripts
-├── testing/               # Tests
-└── utils/                 # Utility functions
+├── footsiesgym/               # Installable package
+│   ├── footsies/              # Core environment, encoder, gRPC client
+│   ├── binary_manager.py      # Binary download and hash verification
+│   ├── wrappers.py            # RLlib wrappers
+│   └── __init__.py            # Package entry point with make()
+├── experimentation/           # Training code (not part of the pip package)
+│   ├── experiments/
+│   │   ├── rllib/             # RLlib experiments, callbacks, components
+│   │   └── cleanrl/           # Self-contained CleanRL PPO example
+│   └── models/                # Neural network architectures
+├── binaries/                  # Game server binaries (downloaded automatically)
+├── scripts/                   # Server launch and inference scripts
+└── testing/                   # Tests
 ```
 
 ## Development
@@ -263,4 +274,6 @@ pytest
 
 ## License
 
-This project is based on the open-source Footsies game by HiFight. See the original game's license for details.
+This project is licensed under the [GNU General Public License v3.0](LICENSE.txt).
+
+FootsiesGym is based on the open-source [Footsies](https://github.com/hifight/Footsies) game by HiFight.

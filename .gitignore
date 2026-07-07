@@ -1,15 +1,19 @@
-/.vscode
+.vscode/
+.claude/
 /__pycache__
 wandb/
+onnx_models/
 
 .DS_Store
 */.DS_Store
 
 plots/
 FootsiesTrajectories/
-footsiesgym/binaries/footsies*/
-!footsiesgym/binaries/*.zip
-binaries/footsies_binaries/
+footsiesgym/binaries/
+/binaries/*
+!/binaries/README.md
+*:Zone.Identifier
+*:com.dropbox.attrs
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

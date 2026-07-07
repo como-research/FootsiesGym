@@ -11,7 +11,7 @@ import numpy as np
 from ray.rllib.utils import policy as rllib_policy_utils
 from scipy import special
 
-from components import module_repository
+from experimentation.experiments.rllib.components import module_repository
 
 MODULE = "4fs-16od-13c7f7b-0.05to0.01-sp-02"
 
@@ -69,9 +69,7 @@ def main():
     module = module_repository.ModuleRepository.get(MODULE)
 
     validation_jsons = [
-        f
-        for f in os.listdir(f"scripts/validation/{MODULE}")
-        if f.endswith(".json")
+        f for f in os.listdir(f"scripts/validation/{MODULE}") if f.endswith(".json")
     ]
     for i, validation_json in enumerate(validation_jsons):
         with open(f"scripts/validation/{MODULE}/{validation_json}", "r") as f:

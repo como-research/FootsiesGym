@@ -83,9 +83,7 @@ class ModuleRepository:
     }
 
     @classmethod
-    def get(
-        cls, module_spec_name: str
-    ) -> rllib_policy.Policy | rl_module.RLModule:
+    def get(cls, module_spec_name: str) -> rllib_policy.Policy | rl_module.RLModule:
         """Retrieve the policy from the policy repository."""
 
         if module_spec_name in cls.static_modules:
@@ -108,9 +106,7 @@ def get_local_checkpoint(
     module_spec: FootsiesModuleSpec,
 ) -> rllib_policy.Policy:
     """Retrieve the checkpoint from the local filesystem. If checkpoint_number is -1, the latest checkpoint is retrieved."""
-    base_dir = os.path.expanduser(
-        f"~/ray_results/{module_spec.experiment_name}"
-    )
+    base_dir = os.path.expanduser(f"~/ray_results/{module_spec.experiment_name}")
 
     trial_name = module_spec.trial_id
 

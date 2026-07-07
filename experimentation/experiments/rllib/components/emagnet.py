@@ -16,11 +16,7 @@ from ray.rllib.policy.sample_batch import SampleBatch
 from ray.rllib.utils.annotations import override
 from ray.rllib.utils.framework import try_import_torch
 from ray.rllib.utils.numpy import convert_to_numpy
-from ray.rllib.utils.torch_utils import (
-    explained_variance,
-    global_norm,
-    sequence_mask,
-)
+from ray.rllib.utils.torch_utils import explained_variance, global_norm, sequence_mask
 from ray.rllib.utils.typing import TensorType
 
 torch, nn = try_import_torch()
@@ -36,15 +32,11 @@ class EMAgnetTorchPolicy(APPOTorchPolicy):
     def __init__(self, observation_space, action_space, config):
         # MMD-specific attributes
         temp_config = config.get("temperature_schedule", 0.1)
-        self.temp = (
-            temp_config if callable(temp_config) else (lambda t: temp_config)
-        )
+        self.temp = temp_config if callable(temp_config) else (lambda t: temp_config)
 
         mag_lr_config = config.get("magnet_learning_rate_schedule", 5e-3)
         self.mag_lr = (
-            mag_lr_config
-            if callable(mag_lr_config)
-            else (lambda t: mag_lr_config)
+            mag_lr_config if callable(mag_lr_config) else (lambda t: mag_lr_config)
         )
 
         self.magnet_policy = None
@@ -88,9 +80,7 @@ class EMAgnetTorchPolicy(APPOTorchPolicy):
         if isinstance(self.action_space, gym.spaces.Discrete):
             is_multidiscrete = False
             output_hidden_shape = [self.action_space.n]
-        elif isinstance(
-            self.action_space, gym.spaces.multi_discrete.MultiDiscrete
-        ):
+        elif isinstance(self.action_space, gym.spaces.multi_discrete.MultiDiscrete):
             is_multidiscrete = True
             output_hidden_shape = self.action_space.nvec.astype(np.int32)
         else:
@@ -119,9 +109,7 @@ class EMAgnetTorchPolicy(APPOTorchPolicy):
 
         if self.is_recurrent():
             max_seq_len = torch.max(train_batch[SampleBatch.SEQ_LENS])
-            mask = sequence_mask(
-                train_batch[SampleBatch.SEQ_LENS], max_seq_len
-            )
+            mask = sequence_mask(train_batch[SampleBatch.SEQ_LENS], max_seq_len)
             mask = torch.reshape(mask, [-1])
             mask = _make_time_major(mask)
             num_valid = torch.sum(mask)
@@ -136,9 +124,7 @@ class EMAgnetTorchPolicy(APPOTorchPolicy):
             logger.debug("Using V-Trace surrogate loss (vtrace=True)")
 
             old_policy_behaviour_logits = target_model_out.detach()
-            old_policy_action_dist = dist_class(
-                old_policy_behaviour_logits, model
-            )
+            old_policy_action_dist = dist_class(old_policy_behaviour_logits, model)
 
             if isinstance(output_hidden_shape, (list, tuple, np.ndarray)):
                 unpacked_behaviour_logits = torch.split(
@@ -159,22 +145,16 @@ class EMAgnetTorchPolicy(APPOTorchPolicy):
 
             # Prepare actions for loss.
             loss_actions = (
-                actions
-                if is_multidiscrete
-                else torch.unsqueeze(actions, dim=1)
+                actions if is_multidiscrete else torch.unsqueeze(actions, dim=1)
             )
 
             # Prepare KL for loss.
-            action_kl = _make_time_major(
-                old_policy_action_dist.kl(action_dist)
-            )
+            action_kl = _make_time_major(old_policy_action_dist.kl(action_dist))
             # reverse_action_kl = _make_time_major(action_dist.kl(old_policy_action_dist))
 
             # Compute vtrace on the CPU for better perf.
             vtrace_returns = vtrace.multi_from_logits(
-                behaviour_policy_logits=_make_time_major(
-                    unpacked_behaviour_logits
-                ),
+                behaviour_policy_logits=_make_time_major(unpacked_behaviour_logits),
                 target_policy_logits=_make_time_major(
                     unpacked_old_policy_behaviour_logits
                 ),
@@ -184,20 +164,14 @@ class EMAgnetTorchPolicy(APPOTorchPolicy):
                 rewards=_make_time_major(rewards),
                 values=values_time_major,
                 bootstrap_value=bootstrap_value,
-                dist_class=(
-                    TorchCategorical if is_multidiscrete else dist_class
-                ),
+                dist_class=(TorchCategorical if is_multidiscrete else dist_class),
                 model=model,
                 clip_rho_threshold=self.config["vtrace_clip_rho_threshold"],
-                clip_pg_rho_threshold=self.config[
-                    "vtrace_clip_pg_rho_threshold"
-                ],
+                clip_pg_rho_threshold=self.config["vtrace_clip_pg_rho_threshold"],
             )
 
             actions_logp = _make_time_major(action_dist.logp(actions))
-            prev_actions_logp = _make_time_major(
-                prev_action_dist.logp(actions)
-            )
+            prev_actions_logp = _make_time_major(prev_action_dist.logp(actions))
             old_policy_actions_logp = _make_time_major(
                 old_policy_action_dist.logp(actions)
             )
@@ -230,9 +204,7 @@ class EMAgnetTorchPolicy(APPOTorchPolicy):
             mean_vf_loss = 0.5 * reduce_mean_valid(torch.pow(delta, 2.0))
 
             # The entropy loss.
-            mean_entropy = reduce_mean_valid(
-                _make_time_major(action_dist.entropy())
-            )
+            mean_entropy = reduce_mean_valid(_make_time_major(action_dist.entropy()))
 
         else:
             logger.debug("Using PPO surrogate loss (vtrace=False)")
@@ -240,14 +212,10 @@ class EMAgnetTorchPolicy(APPOTorchPolicy):
             # Prepare KL for Loss
             action_kl = _make_time_major(prev_action_dist.kl(action_dist))
             actions_logp = _make_time_major(action_dist.logp(actions))
-            prev_actions_logp = _make_time_major(
-                prev_action_dist.logp(actions)
-            )
+            prev_actions_logp = _make_time_major(prev_action_dist.logp(actions))
             logp_ratio = torch.exp(actions_logp - prev_actions_logp)
 
-            advantages = _make_time_major(
-                train_batch[Postprocessing.ADVANTAGES]
-            )
+            advantages = _make_time_major(train_batch[Postprocessing.ADVANTAGES])
             surrogate_loss = torch.min(
                 advantages * logp_ratio,
                 advantages
@@ -263,16 +231,12 @@ class EMAgnetTorchPolicy(APPOTorchPolicy):
             mean_policy_loss = -reduce_mean_valid(surrogate_loss)
 
             # The value function loss.
-            value_targets = _make_time_major(
-                train_batch[Postprocessing.VALUE_TARGETS]
-            )
+            value_targets = _make_time_major(train_batch[Postprocessing.VALUE_TARGETS])
             delta = values_time_major - value_targets
             mean_vf_loss = 0.5 * reduce_mean_valid(torch.pow(delta, 2.0))
 
             # The entropy loss.
-            mean_entropy = reduce_mean_valid(
-                _make_time_major(action_dist.entropy())
-            )
+            mean_entropy = reduce_mean_valid(_make_time_major(action_dist.entropy()))
 
         # The summed weighted loss.
         total_loss = mean_policy_loss - mean_entropy * self.entropy_coeff
@@ -344,20 +308,14 @@ class EMAgnetTorchPolicy(APPOTorchPolicy):
         """
         stats_dict = {
             "cur_lr": self.cur_lr,
-            "total_loss": torch.mean(
-                torch.stack(self.get_tower_stats("total_loss"))
-            ),
+            "total_loss": torch.mean(torch.stack(self.get_tower_stats("total_loss"))),
             "policy_loss": torch.mean(
                 torch.stack(self.get_tower_stats("mean_policy_loss"))
             ),
-            "entropy": torch.mean(
-                torch.stack(self.get_tower_stats("mean_entropy"))
-            ),
+            "entropy": torch.mean(torch.stack(self.get_tower_stats("mean_entropy"))),
             "entropy_coeff": self.entropy_coeff,
             "var_gnorm": global_norm(self.model.trainable_variables()),
-            "vf_loss": torch.mean(
-                torch.stack(self.get_tower_stats("mean_vf_loss"))
-            ),
+            "vf_loss": torch.mean(torch.stack(self.get_tower_stats("mean_vf_loss"))),
             "vf_explained_var": torch.mean(
                 torch.stack(self.get_tower_stats("vf_explained_var"))
             ),

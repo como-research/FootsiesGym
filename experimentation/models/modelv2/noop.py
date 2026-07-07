@@ -48,12 +48,8 @@ class NoOpPolicy(Policy):
         self,
         obs_batch: Union[List[TensorStructType], TensorStructType],
         state_batches: Optional[List[TensorType]] = None,
-        prev_action_batch: Union[
-            List[TensorStructType], TensorStructType
-        ] = None,
-        prev_reward_batch: Union[
-            List[TensorStructType], TensorStructType
-        ] = None,
+        prev_action_batch: Union[List[TensorStructType], TensorStructType] = None,
+        prev_reward_batch: Union[List[TensorStructType], TensorStructType] = None,
         **kwargs,
     ):
         # Alternatively, a numpy array would work here as well.

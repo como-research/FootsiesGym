@@ -4,15 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "footsies-gym"
-version = "0.7.0"
+version = "0.7.2"
 description = "A reinforcement learning environment for HiFight's Footsies game"
 readme = "README.md"
-license = "MIT"
+license = "GPL-3.0-only"
 authors = [
-    {name = "Chase McDonald", email = "cmcdonald@example.com"}
+    {name = "Chase McDonald", email = "chasecmcdonald@gmail.com"}
 ]
 maintainers = [
-    {name = "Chase McDonald", email = "cmcdonald@example.com"}
+    {name = "Chase McDonald", email = "chasecmcdonald@gmail.com"}
 ]
 keywords = ["reinforcement learning", "multi-agent", "fighting game", "footsies", "gymnasium"]
 classifiers = [
@@ -42,9 +42,11 @@ dependencies = [
 [project.optional-dependencies]
 rllib = [
     "ray[rllib]>=2.46.0",
+    "torch>=2.0.0",
 ]
 training = [
     "wandb>=0.15.0",
+    "torch>=2.0.0",
 ]
 dev = [
     "pre-commit",
@@ -58,10 +60,10 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/cmcdonald/FootsiesGym"
-Repository = "https://github.com/cmcdonald/FootsiesGym"
-Documentation = "https://github.com/cmcdonald/FootsiesGym#readme"
-"Bug Tracker" = "https://github.com/cmcdonald/FootsiesGym/issues"
+Homepage = "https://github.com/como-research/FootsiesGym"
+Repository = "https://github.com/como-research/FootsiesGym"
+Documentation = "https://github.com/como-research/FootsiesGym#readme"
+"Bug Tracker" = "https://github.com/como-research/FootsiesGym/issues"
 
 [tool.setuptools]
 packages = ["footsiesgym", "footsiesgym.footsies", "footsiesgym.footsies.game", "footsiesgym.footsies.game.proto"]

@@ -4,14 +4,13 @@ import time
 import grpc
 import numpy as np
 
-from footsiesgym.footsies import utils
 from footsiesgym.footsies.game import constants
 from footsiesgym.footsies.game.proto import footsies_service_pb2 as footsies_pb2
-from footsiesgym.footsies.game.proto import footsies_service_pb2_grpc as footsies_pb2_grpc
+from footsiesgym.footsies.game.proto import (
+    footsies_service_pb2_grpc as footsies_pb2_grpc,
+)
 
 log = logging.getLogger(__name__)
-
-TIMEOUT_DURATION_S = 5
 
 
 class FootsiesGame:
@@ -26,7 +25,6 @@ class FootsiesGame:
         self.port = port
         self.stub = self._initialize_stub()
 
-    @utils.timeout(TIMEOUT_DURATION_S)
     def _initialize_stub(self) -> footsies_pb2_grpc.FootsiesGameServiceStub:
         try:
             channel = grpc.insecure_channel(f"{self.host}:{self.port}")
@@ -35,7 +33,6 @@ class FootsiesGame:
             log.error(f"Error connecting to gRPC stub with exception: {e}")
             raise e
 
-    @utils.timeout(TIMEOUT_DURATION_S)
     def start_game(self) -> None:
         """Starts the game by calling the StartGame RPC."""
         try:
@@ -50,7 +47,6 @@ class FootsiesGame:
             log.error(f"Error calling StartGame with exception: {e}")
             raise e
 
-    @utils.timeout(TIMEOUT_DURATION_S)
     def is_ready(self) -> bool:
         """Checks if the game is ready by calling the IsReady RPC."""
         try:
@@ -59,7 +55,6 @@ class FootsiesGame:
             log.error(f"Error calling IsReady with exception: {e}")
             raise e
 
-    @utils.timeout(TIMEOUT_DURATION_S)
     def get_state(self) -> footsies_pb2.GameState:
         """Gets the current game state by calling the GetState RPC."""
         try:
@@ -68,7 +63,6 @@ class FootsiesGame:
             log.error(f"Error calling GetState with exception: {e}")
             raise e
 
-    @utils.timeout(TIMEOUT_DURATION_S)
     def get_encoded_state(self) -> footsies_pb2.EncodedGameState:
         """Gets the current encoded game state by calling the GetEncodedState RPC."""
         try:
@@ -77,7 +71,6 @@ class FootsiesGame:
             log.error(f"Error calling GetEncodedState with exception: {e}")
             raise e
 
-    @utils.timeout(TIMEOUT_DURATION_S)
     def step_n_frames(
         self, p1_action: int, p2_action: int, n_frames: int
     ) -> footsies_pb2.GameState:
@@ -91,7 +84,6 @@ class FootsiesGame:
             log.error(f"Error calling StepNFrames with exception: {e}")
             raise e
 
-    @utils.timeout(TIMEOUT_DURATION_S)
     def reset_game(self) -> None:
         """Resets the game by calling the ResetGame RPC."""
         try:
@@ -156,12 +148,8 @@ class VectorizedFootsiesGame:
         self.num_envs = num_envs
 
         channel = grpc.insecure_channel(f"{host}:{port}")
-        self.game_stub = (
-            footsies_pb2_grpc.FootsiesGameServiceStub(channel)
-        )
-        self.vec_stub = (
-            footsies_pb2_grpc.VectorizedFootsiesServiceStub(channel)
-        )
+        self.game_stub = footsies_pb2_grpc.FootsiesGameServiceStub(channel)
+        self.vec_stub = footsies_pb2_grpc.VectorizedFootsiesServiceStub(channel)
 
     def start_and_init(self, timeout: float = 10.0):
         """Start the game, wait for ready, and init vectorized envs."""
@@ -177,22 +165,16 @@ class VectorizedFootsiesGame:
 
         # Init vectorized environments
         self.vec_stub.InitEnvironments(
-            footsies_pb2.InitEnvironmentsRequest(
-                num_environments=self.num_envs
-            )
+            footsies_pb2.InitEnvironmentsRequest(num_environments=self.num_envs)
         )
 
         # Wait for vec ready
         for _ in range(int(timeout / 0.5)):
-            if self.vec_stub.IsVecReady(
-                footsies_pb2.Empty()
-            ).value:
+            if self.vec_stub.IsVecReady(footsies_pb2.Empty()).value:
                 break
             time.sleep(0.5)
         else:
-            raise RuntimeError(
-                "Vectorized environments never became ready"
-            )
+            raise RuntimeError("Vectorized environments never became ready")
 
     def batch_step(
         self,
@@ -208,13 +190,9 @@ class VectorizedFootsiesGame:
             )
         )
 
-    def batch_reset(
-        self, mask: np.ndarray
-    ) -> footsies_pb2.BatchRawState:
+    def batch_reset(self, mask: np.ndarray) -> footsies_pb2.BatchRawState:
         return self.vec_stub.BatchReset(
-            footsies_pb2.BatchResetInput(
-                reset_mask=mask.tolist()
-            )
+            footsies_pb2.BatchResetInput(reset_mask=mask.tolist())
         )
 
     def batch_reset_all(self) -> footsies_pb2.BatchRawState:

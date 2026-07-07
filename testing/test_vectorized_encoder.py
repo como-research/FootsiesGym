@@ -7,10 +7,7 @@ These tests use synthetic BatchRawState protobuf messages — no server needed.
 import numpy as np
 import pytest
 
-from footsiesgym.footsies.encoder import (
-    FootsiesEncoder,
-    VectorizedEncoder,
-)
+from footsiesgym.footsies.encoder import FootsiesEncoder, VectorizedEncoder
 from footsiesgym.footsies.game import constants
 from footsiesgym.footsies.game.proto import footsies_service_pb2 as pb2
 
@@ -110,19 +107,17 @@ def _build_game_state_from_raw(raw, idx):
         player.is_dead = getattr(raw, f"{prefix}_is_dead")[idx]
         player.vital_health = getattr(raw, f"{prefix}_vital_health")[idx]
         player.guard_health = getattr(raw, f"{prefix}_guard_health")[idx]
-        player.current_action_id = getattr(raw, f"{prefix}_current_action_id")[
+        player.current_action_id = getattr(raw, f"{prefix}_current_action_id")[idx]
+        player.current_action_frame = getattr(raw, f"{prefix}_current_action_frame")[
             idx
         ]
-        player.current_action_frame = getattr(
-            raw, f"{prefix}_current_action_frame"
-        )[idx]
         player.current_action_frame_count = getattr(
             raw, f"{prefix}_current_action_frame_count"
         )[idx]
         player.is_action_end = getattr(raw, f"{prefix}_is_action_end")[idx]
-        player.is_always_cancelable = getattr(
-            raw, f"{prefix}_is_always_cancelable"
-        )[idx]
+        player.is_always_cancelable = getattr(raw, f"{prefix}_is_always_cancelable")[
+            idx
+        ]
         player.current_action_hit_count = getattr(
             raw, f"{prefix}_current_action_hit_count"
         )[idx]
@@ -130,9 +125,9 @@ def _build_game_state_from_raw(raw, idx):
             raw, f"{prefix}_current_hit_stun_frame"
         )[idx]
         player.is_in_hit_stun = getattr(raw, f"{prefix}_is_in_hit_stun")[idx]
-        player.sprite_shake_position = getattr(
-            raw, f"{prefix}_sprite_shake_position"
-        )[idx]
+        player.sprite_shake_position = getattr(raw, f"{prefix}_sprite_shake_position")[
+            idx
+        ]
         player.max_sprite_shake_frame = getattr(
             raw, f"{prefix}_max_sprite_shake_frame"
         )[idx]
@@ -226,12 +221,8 @@ class TestVectorizedEncoder:
             num_actions=NUM_ACTIONS,
         )
 
-        np.testing.assert_allclose(
-            vec_result["p1"][0], scalar_result["p1"], atol=1e-6
-        )
-        np.testing.assert_allclose(
-            vec_result["p2"][0], scalar_result["p2"], atol=1e-6
-        )
+        np.testing.assert_allclose(vec_result["p1"][0], scalar_result["p1"], atol=1e-6)
+        np.testing.assert_allclose(vec_result["p2"][0], scalar_result["p2"], atol=1e-6)
 
     def test_output_shape(self):
         num_envs = 16

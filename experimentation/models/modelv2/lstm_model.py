@@ -24,7 +24,11 @@ class LSTMModel(recurrent_net.RecurrentNetwork, nn.Module):
         )
         nn.Module.__init__(self)
 
-        obs_space = obs_space.original_space["obs"] if hasattr(obs_space, 'original_space') else obs_space
+        obs_space = (
+            obs_space.original_space["obs"]
+            if hasattr(obs_space, "original_space")
+            else obs_space
+        )
         input_size = obs_space.shape[0]
         self.lstm_cell_size = kwargs.get("lstm_cell_size", 128)
         self.lstm = nn.LSTM(input_size, self.lstm_cell_size, batch_first=True)
@@ -37,9 +41,7 @@ class LSTMModel(recurrent_net.RecurrentNetwork, nn.Module):
         for i in range(1, len(policy_dense_widths)):
             model_body.extend(
                 [
-                    nn.Linear(
-                        policy_dense_widths[i - 1], policy_dense_widths[i]
-                    ),
+                    nn.Linear(policy_dense_widths[i - 1], policy_dense_widths[i]),
                     nn.ReLU(),
                 ]
             )
@@ -48,14 +50,12 @@ class LSTMModel(recurrent_net.RecurrentNetwork, nn.Module):
         self.pi = nn.Linear(policy_dense_widths[-1], num_outputs)
         self.vf = nn.Linear(policy_dense_widths[-1], 1)
 
-
     def forward(
         self,
         input_dict: dict[str, rllib_typing.TensorType],
         state: list[rllib_typing.TensorType],
         seq_lens: rllib_typing.TensorType,
     ) -> tuple[rllib_typing.TensorType, list[rllib_typing.TensorType]]:
-    
 
         if isinstance(input_dict["obs"], dict):
             input_dict["obs_flat"] = input_dict["obs"]["obs"]
@@ -67,18 +67,15 @@ class LSTMModel(recurrent_net.RecurrentNetwork, nn.Module):
             if action_mask is not None:
                 inf_mask = torch.clamp(torch.log(action_mask), min=FLOAT_MIN)
                 output = output + inf_mask
-        
-        return output, new_state
 
+        return output, new_state
 
     def forward_rnn(
         self,
         inputs: rllib_typing.TensorType,
         state: list[rllib_typing.TensorType],
         seq_lens: rllib_typing.TensorType,
-    ) -> recurrent_net.Tuple[
-        rllib_typing.TensorType, list[rllib_typing.TensorType]
-    ]:
+    ) -> recurrent_net.Tuple[rllib_typing.TensorType, list[rllib_typing.TensorType]]:
 
         hxs, cxs = [torch.unsqueeze(s, 0) for s in state]
         x, (hxs, cxs) = self.lstm(inputs, (hxs, cxs))

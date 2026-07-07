@@ -5,7 +5,9 @@ from google.protobuf import json_format
 
 from footsiesgym.footsies.game import constants
 from footsiesgym.footsies.game.proto import footsies_service_pb2 as footsies_pb2
-from footsiesgym.footsies.game.proto import footsies_service_pb2_grpc as footsies_pb2_grpc
+from footsiesgym.footsies.game.proto import (
+    footsies_service_pb2_grpc as footsies_pb2_grpc,
+)
 
 
 def run():

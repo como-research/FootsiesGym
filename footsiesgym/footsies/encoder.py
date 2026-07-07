@@ -1,14 +1,10 @@
-import collections
-import copy
 import dataclasses
 from typing import Any
 
 import numpy as np
 
 from footsiesgym.footsies.game import constants
-from footsiesgym.footsies.game.proto import (
-    footsies_service_pb2 as footsies_pb2,
-)
+from footsiesgym.footsies.game.proto import footsies_service_pb2 as footsies_pb2
 from footsiesgym.footsies.typing import ActionType, AgentID
 
 
@@ -96,12 +92,8 @@ class FootsiesEncoder:
         self._last_common_state = common_state
 
         # Concatenate the observations for the undelayed encoding
-        p1_encoding_concat = np.hstack(
-            list(p1_encoding.values()), dtype=np.float32
-        )
-        p2_encoding_concat = np.hstack(
-            list(p2_encoding.values()), dtype=np.float32
-        )
+        p1_encoding_concat = np.hstack(list(p1_encoding.values()), dtype=np.float32)
+        p2_encoding_concat = np.hstack(list(p2_encoding.values()), dtype=np.float32)
 
         # Opponent states that remove privileged features
         # Remove privileged features from the opponent's state dict then concatenate
@@ -132,9 +124,7 @@ class FootsiesEncoder:
 
         return {"p1": p1_centric_observation, "p2": p2_centric_observation}
 
-    def encode_common_state(
-        self, game_state: footsies_pb2.GameState
-    ) -> np.ndarray:
+    def encode_common_state(self, game_state: footsies_pb2.GameState) -> np.ndarray:
         """
         Encode features that are always the same for both agents. These
         should be features that are a function of both players' states.
@@ -188,9 +178,7 @@ class FootsiesEncoder:
             "guard_health": EncoderMethods.one_hot(
                 player_state.guard_health, [0, 1, 2, 3]
             ),
-            "current_action_id": self._encode_action_id(
-                player_state.current_action_id
-            ),
+            "current_action_id": self._encode_action_id(player_state.current_action_id),
             "current_action_frame": player_state.current_action_frame
             / NormalizationConstants.meaningful_frame_count,
             "current_action_frame_count": player_state.current_action_frame_count
@@ -219,9 +207,7 @@ class FootsiesEncoder:
             "would_next_backward_input_dash": int(
                 player_state.would_next_backward_input_dash
             ),
-            "special_attack_progress": min(
-                player_state.special_attack_progress, 1.0
-            ),
+            "special_attack_progress": min(player_state.special_attack_progress, 1.0),
             "previous_action": EncoderMethods.one_hot(
                 prev_action, [i for i in range(num_actions)]
             ),
@@ -348,12 +334,8 @@ class VectorizedEncoder:
         self, s: footsies_pb2.BatchRawState, prefix: str
     ) -> dict[str, np.ndarray]:
         """Extract all per-player fields from the proto into numpy."""
-        g = lambda field: np.array(
-            getattr(s, f"{prefix}_{field}"), dtype=np.float32
-        )
-        gi = lambda field: np.array(
-            getattr(s, f"{prefix}_{field}"), dtype=np.int64
-        )
+        g = lambda field: np.array(getattr(s, f"{prefix}_{field}"), dtype=np.float32)
+        gi = lambda field: np.array(getattr(s, f"{prefix}_{field}"), dtype=np.int64)
         return {
             "position_x": g("position_x"),
             "velocity_x": g("velocity_x"),
@@ -361,37 +343,23 @@ class VectorizedEncoder:
             "vital_health": gi("vital_health").astype(np.float32),
             "guard_health": gi("guard_health"),
             "current_action_id": gi("current_action_id"),
-            "current_action_frame": gi("current_action_frame").astype(
+            "current_action_frame": gi("current_action_frame").astype(np.float32),
+            "current_action_frame_count": gi("current_action_frame_count").astype(
                 np.float32
             ),
-            "current_action_frame_count": gi(
-                "current_action_frame_count"
-            ).astype(np.float32),
             "is_action_end": g("is_action_end"),
             "is_always_cancelable": g("is_always_cancelable"),
             "current_action_hit_count": gi("current_action_hit_count").astype(
                 np.float32
             ),
-            "current_hit_stun_frame": gi("current_hit_stun_frame").astype(
-                np.float32
-            ),
+            "current_hit_stun_frame": gi("current_hit_stun_frame").astype(np.float32),
             "is_in_hit_stun": g("is_in_hit_stun"),
-            "sprite_shake_position": gi("sprite_shake_position").astype(
-                np.float32
-            ),
-            "max_sprite_shake_frame": gi("max_sprite_shake_frame").astype(
-                np.float32
-            ),
+            "sprite_shake_position": gi("sprite_shake_position").astype(np.float32),
+            "max_sprite_shake_frame": gi("max_sprite_shake_frame").astype(np.float32),
             "is_face_right": g("is_face_right"),
-            "current_frame_advantage": gi("current_frame_advantage").astype(
-                np.float32
-            ),
-            "would_next_forward_input_dash": g(
-                "would_next_forward_input_dash"
-            ),
-            "would_next_backward_input_dash": g(
-                "would_next_backward_input_dash"
-            ),
+            "current_frame_advantage": gi("current_frame_advantage").astype(np.float32),
+            "would_next_forward_input_dash": g("would_next_forward_input_dash"),
+            "would_next_backward_input_dash": g("would_next_backward_input_dash"),
             "special_attack_progress": g("special_attack_progress"),
         }
 
@@ -415,9 +383,7 @@ class VectorizedEncoder:
         # --- Well-known features (37 total) ---
         full[:, c] = f["position_x"] / NormalizationConstants.max_x_value
         c += 1
-        full[:, c] = (
-            f["velocity_x"] / NormalizationConstants.meaningful_velocity_x
-        )
+        full[:, c] = f["velocity_x"] / NormalizationConstants.meaningful_velocity_x
         c += 1
         full[:, c] = f["is_dead"]
         c += 1
@@ -436,8 +402,7 @@ class VectorizedEncoder:
         c += _NUM_ACTION_IDS
 
         full[:, c] = (
-            f["current_action_frame"]
-            / NormalizationConstants.meaningful_frame_count
+            f["current_action_frame"] / NormalizationConstants.meaningful_frame_count
         )
         c += 1
         full[:, c] = (

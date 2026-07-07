@@ -28,9 +28,7 @@ import numpy as np
 
 from footsiesgym.footsies.encoder import VectorizedEncoder
 from footsiesgym.footsies.game.proto import footsies_service_pb2 as pb2
-from footsiesgym.footsies.game.proto import (
-    footsies_service_pb2_grpc as pb2_grpc,
-)
+from footsiesgym.footsies.game.proto import footsies_service_pb2_grpc as pb2_grpc
 
 NUM_ACTIONS = 7
 GAME_ACTIONS = [0, 1, 2, 4]  # NONE, LEFT, RIGHT, ATTACK
@@ -92,12 +90,8 @@ def validate_reset(vec_stub, encoder, num_envs):
     csharp_state = vec_stub.BatchResetAllEncoded(
         pb2.BatchResetAllEncodedInput(num_actions=NUM_ACTIONS)
     )
-    csharp_p1 = np.array(csharp_state.p1_encodings).reshape(
-        num_envs, encoder.obs_size
-    )
-    csharp_p2 = np.array(csharp_state.p2_encodings).reshape(
-        num_envs, encoder.obs_size
-    )
+    csharp_p1 = np.array(csharp_state.p1_encodings).reshape(num_envs, encoder.obs_size)
+    csharp_p2 = np.array(csharp_state.p2_encodings).reshape(num_envs, encoder.obs_size)
 
     # 2. Raw reset (resets to same deterministic initial state)
     raw_state = vec_stub.BatchResetAll(pb2.Empty())
@@ -125,10 +119,7 @@ def validate_steps(vec_stub, encoder, num_envs, num_steps, n_frames):
       3. ResetAll again to sync
       4. Step with raw -> Python encode -> compare with C#
     """
-    print(
-        "\n=== VALIDATE STEPS (%d steps, n_frames=%d) ==="
-        % (num_steps, n_frames)
-    )
+    print("\n=== VALIDATE STEPS (%d steps, n_frames=%d) ===" % (num_steps, n_frames))
 
     all_ok = True
     rng = random.Random(42)
@@ -201,10 +192,7 @@ def validate_sequence(vec_stub, encoder, num_envs, num_steps, n_frames):
     This tests encoding across varied game states (mid-fight,
     near-KO, post-auto-reset) without any state divergence issues.
     """
-    print(
-        "\n=== VALIDATE SEQUENCE (%d steps, n_frames=%d) ==="
-        % (num_steps, n_frames)
-    )
+    print("\n=== VALIDATE SEQUENCE (%d steps, n_frames=%d) ===" % (num_steps, n_frames))
 
     rng = random.Random(99)
     vec_stub.BatchResetAll(pb2.Empty())
@@ -246,12 +234,8 @@ def validate_sequence(vec_stub, encoder, num_envs, num_steps, n_frames):
                 num_actions=NUM_ACTIONS,
             )
         )
-        cs_p1 = np.array(cs_state.p1_encodings).reshape(
-            num_envs, encoder.obs_size
-        )
-        cs_p2 = np.array(cs_state.p2_encodings).reshape(
-            num_envs, encoder.obs_size
-        )
+        cs_p1 = np.array(cs_state.p1_encodings).reshape(num_envs, encoder.obs_size)
+        cs_p2 = np.array(cs_state.p2_encodings).reshape(num_envs, encoder.obs_size)
 
         ok_p1 = compare_arrays("seq step %d p1" % step, py_result["p1"], cs_p1)
         ok_p2 = compare_arrays("seq step %d p2" % step, py_result["p2"], cs_p2)
@@ -339,9 +323,7 @@ def _build_game_state_from_raw(raw, idx):
     gs.player1.guard_health = raw.p1_guard_health[idx]
     gs.player1.current_action_id = raw.p1_current_action_id[idx]
     gs.player1.current_action_frame = raw.p1_current_action_frame[idx]
-    gs.player1.current_action_frame_count = raw.p1_current_action_frame_count[
-        idx
-    ]
+    gs.player1.current_action_frame_count = raw.p1_current_action_frame_count[idx]
     gs.player1.is_action_end = raw.p1_is_action_end[idx]
     gs.player1.is_always_cancelable = raw.p1_is_always_cancelable[idx]
     gs.player1.current_action_hit_count = raw.p1_current_action_hit_count[idx]
@@ -351,12 +333,10 @@ def _build_game_state_from_raw(raw, idx):
     gs.player1.max_sprite_shake_frame = raw.p1_max_sprite_shake_frame[idx]
     gs.player1.is_face_right = raw.p1_is_face_right[idx]
     gs.player1.current_frame_advantage = raw.p1_current_frame_advantage[idx]
-    gs.player1.would_next_forward_input_dash = (
-        raw.p1_would_next_forward_input_dash[idx]
-    )
-    gs.player1.would_next_backward_input_dash = (
-        raw.p1_would_next_backward_input_dash[idx]
-    )
+    gs.player1.would_next_forward_input_dash = raw.p1_would_next_forward_input_dash[idx]
+    gs.player1.would_next_backward_input_dash = raw.p1_would_next_backward_input_dash[
+        idx
+    ]
     gs.player1.special_attack_progress = raw.p1_special_attack_progress[idx]
 
     gs.player2.player_position_x = raw.p2_position_x[idx]
@@ -366,9 +346,7 @@ def _build_game_state_from_raw(raw, idx):
     gs.player2.guard_health = raw.p2_guard_health[idx]
     gs.player2.current_action_id = raw.p2_current_action_id[idx]
     gs.player2.current_action_frame = raw.p2_current_action_frame[idx]
-    gs.player2.current_action_frame_count = raw.p2_current_action_frame_count[
-        idx
-    ]
+    gs.player2.current_action_frame_count = raw.p2_current_action_frame_count[idx]
     gs.player2.is_action_end = raw.p2_is_action_end[idx]
     gs.player2.is_always_cancelable = raw.p2_is_always_cancelable[idx]
     gs.player2.current_action_hit_count = raw.p2_current_action_hit_count[idx]
@@ -378,12 +356,10 @@ def _build_game_state_from_raw(raw, idx):
     gs.player2.max_sprite_shake_frame = raw.p2_max_sprite_shake_frame[idx]
     gs.player2.is_face_right = raw.p2_is_face_right[idx]
     gs.player2.current_frame_advantage = raw.p2_current_frame_advantage[idx]
-    gs.player2.would_next_forward_input_dash = (
-        raw.p2_would_next_forward_input_dash[idx]
-    )
-    gs.player2.would_next_backward_input_dash = (
-        raw.p2_would_next_backward_input_dash[idx]
-    )
+    gs.player2.would_next_forward_input_dash = raw.p2_would_next_forward_input_dash[idx]
+    gs.player2.would_next_backward_input_dash = raw.p2_would_next_backward_input_dash[
+        idx
+    ]
     gs.player2.special_attack_progress = raw.p2_special_attack_progress[idx]
 
     gs.round_state = raw.round_states[idx]
@@ -404,9 +380,7 @@ def run(host, port, num_envs, num_steps, n_frames):
     wait_for_ready(game_stub, timeout=10)
 
     print("3. Initializing %d environments..." % num_envs)
-    vec_stub.InitEnvironments(
-        pb2.InitEnvironmentsRequest(num_environments=num_envs)
-    )
+    vec_stub.InitEnvironments(pb2.InitEnvironmentsRequest(num_environments=num_envs))
     for _ in range(20):
         if vec_stub.IsVecReady(pb2.Empty()).value:
             break
@@ -427,9 +401,7 @@ def run(host, port, num_envs, num_steps, n_frames):
     all_ok &= validate_steps(vec_stub, encoder, num_envs, num_steps, n_frames)
 
     # Test 4: Python vs C# over a contiguous gameplay sequence
-    all_ok &= validate_sequence(
-        vec_stub, encoder, num_envs, num_steps, n_frames
-    )
+    all_ok &= validate_sequence(vec_stub, encoder, num_envs, num_steps, n_frames)
 
     print("\n" + "=" * 50)
     if all_ok:
@@ -440,9 +412,7 @@ def run(host, port, num_envs, num_steps, n_frames):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Validate Python vs C# encoding"
-    )
+    parser = argparse.ArgumentParser(description="Validate Python vs C# encoding")
     parser.add_argument("--host", default="localhost")
     parser.add_argument("--port", type=int, default=50051)
     parser.add_argument("--num-envs", type=int, default=50)
