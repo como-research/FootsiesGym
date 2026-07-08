@@ -48,11 +48,24 @@ while True:
 > **Note:** `launch_binaries=True` (the default) works on Linux and macOS (on macOS the server runs under Rosetta and is re-signed automatically; see [Platform Support](#platform-support)). Windows is not supported.
 
 
+## System Architecture
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/architecture-dark.svg">
+    <img alt="FootsiesGym architecture: a policy exchanges actions and observations with FootsiesEnv, which drives the Unity game server over gRPC. On first use, BinaryManager downloads, verifies, and launches the server automatically." src="assets/architecture-light.svg">
+  </picture>
+</p>
+
+Solid arrows are the per-step data flow; dotted arrows run once, on first use. The environment steps the game `frame_skip` frames per call, and in vectorized mode (`num_envs > 1`) a single server hosts N games stepped in one batched RPC.
+
+
+
 ## Configuration
 
 ### Creating an Environment
 
-Use `footsiesgym.make()` for a quick setup with sensible defaults:
+Use `footsiesgym.make()` for a quick setup:
 
 ```python
 env = footsiesgym.make(
@@ -60,14 +73,6 @@ env = footsiesgym.make(
     platform="linux",       # "linux" or "mac"
     launch_binaries=True,   # Auto-launch game server (Linux and macOS)
 )
-```
-
-Or create the environment directly for full control:
-
-```python
-from footsiesgym import FootsiesEnv
-
-env = FootsiesEnv(config={...})
 ```
 
 ### Config Options
@@ -138,14 +143,6 @@ Rewards are **zero-sum** between the two agents (`rewards["p1"] + rewards["p2"] 
 
 When `use_reward_budget=True`, guard break rewards are deducted from the win reward so total reward per episode is capped at `win_reward_scaling_coeff`. When `False`, guard break rewards are additive.
 
-## Platform Support
-
-| Platform | Supported? | Auto-launch | Manual launch |
-|----------|------------|-------------|---------------|
-| **Linux** |   Yes | `launch_binaries=True` | Supported |
-| **macOS** |     Yes     | `launch_binaries=True` | Supported |
-| **Windows** |    No   | --- | --- |
-
 ### Manual Launch
 
 Binaries are downloaded, extracted, re-signed (ad-hoc), and launched automatically, just like on Linux — the game server runs under Rosetta since gRPC (Grpc.Core) is x86_64-only:
@@ -164,13 +161,13 @@ unzip footsies_mac_headless_bbdb506.zip
 arch -x86_64 footsies_mac_headless_bbdb506/FOOTSIES --port 50051 -batchmode --grpc
 ```
 
-If macOS reports "This will damage your computer," re-sign the binary:
+If macOS errors, you may need to re-sign the binary:
 
 ```bash
 codesign --force --deep --sign - footsies_mac_headless_bbdb506/FOOTSIES
 ```
 
-Then create the environment against the running server:
+Then create the environment against the running server's port:
 
 ```python
 env = footsiesgym.make(
@@ -216,18 +213,6 @@ python -m experimentation.experiments.rllib.train_rlmodule --experiment-name <ex
 
 A self-contained [CleanRL PPO example](experimentation/experiments/cleanrl/) is
 also included.
-
-## System Architecture
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/architecture-dark.svg">
-    <img alt="FootsiesGym architecture: a policy exchanges actions and observations with FootsiesEnv, which drives the Unity game server over gRPC. On first use, BinaryManager downloads, verifies, and launches the server automatically." src="assets/architecture-light.svg">
-  </picture>
-</p>
-
-Solid arrows are the per-step data flow; dotted arrows run once, on first use. The environment steps the game `frame_skip` frames per call, and in vectorized mode (`num_envs > 1`) a single server hosts N games stepped in one batched RPC.
-
 
 ## Throughput
 
