@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 48 830 236" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse">
+      <path d="M0,0 L8,4 L0,8 z" fill="#6e7781"/>
+    </marker>
+  </defs>
+
+  <!-- Policy -->
+  <circle cx="90" cy="104" r="36" fill="#f6f8fa" stroke="#d1d9e0"/>
+  <text x="90" y="117" text-anchor="middle" font-size="38" font-style="italic" font-family="Georgia,'Times New Roman',serif" fill="#1f2328">&#960;</text>
+
+  <!-- FootsiesEnv (accent) -->
+  <rect x="230" y="62" width="240" height="84" rx="8" fill="#ddf4ff" stroke="#54aeff"/>
+  <text x="350" y="92" text-anchor="middle" font-size="13" font-weight="600" fill="#1f2328">FootsiesEnv</text>
+  <text x="350" y="112" text-anchor="middle" font-size="11.5" fill="#59636e">PettingZoo ParallelEnv</text>
+  <text x="350" y="128" text-anchor="middle" font-size="11.5" fill="#59636e">encoding &#183; action delay &#183; rewards</text>
+
+  <!-- Unity game server -->
+  <rect x="570" y="62" width="240" height="84" rx="8" fill="#f6f8fa" stroke="#d1d9e0"/>
+  <text x="690" y="92" text-anchor="middle" font-size="13" font-weight="600" fill="#1f2328">Unity game server</text>
+  <text x="690" y="112" text-anchor="middle" font-size="11.5" fill="#59636e">headless or windowed</text>
+  <text x="690" y="128" text-anchor="middle" font-size="11.5" fill="#59636e">1&#8211;N games per process</text>
+
+  <!-- Policy <-> Env -->
+  <line x1="134" y1="88" x2="222" y2="88" stroke="#6e7781" stroke-width="1.25" marker-end="url(#arrow)"/>
+  <text x="178" y="80" text-anchor="middle" font-size="11" fill="#59636e" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">actions</text>
+  <line x1="226" y1="120" x2="138" y2="120" stroke="#6e7781" stroke-width="1.25" marker-end="url(#arrow)"/>
+  <text x="178" y="138" text-anchor="middle" font-size="11" fill="#59636e" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">obs &#183; rewards</text>
+
+  <!-- Env <-> Server -->
+  <line x1="478" y1="104" x2="562" y2="104" stroke="#6e7781" stroke-width="1.25" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <text x="520" y="96" text-anchor="middle" font-size="11" fill="#59636e" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">gRPC</text>
+
+  <!-- Setup path (first use) -->
+  <line x1="350" y1="146" x2="350" y2="228" stroke="#8c959f" stroke-width="1.25" stroke-dasharray="3 3"/>
+  <text x="360" y="192" font-size="11" fill="#59636e" font-style="italic">first use</text>
+  <line x1="690" y1="228" x2="690" y2="152" stroke="#8c959f" stroke-width="1.25" stroke-dasharray="3 3" marker-end="url(#arrow)"/>
+
+  <rect x="310" y="228" width="420" height="44" rx="10" fill="none" stroke="#8c959f" stroke-dasharray="3 3"/>
+  <text x="520" y="246" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1f2328">BinaryManager</text>
+  <text x="520" y="262" text-anchor="middle" font-size="10.5" fill="#59636e" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">CDN + GitHub Releases &#183; SHA256 &#183; auto-launch</text>
+</svg>

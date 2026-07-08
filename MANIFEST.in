@@ -1,0 +1,26 @@
+# Include package metadata files
+include README.md
+include LICENSE.txt
+include pyproject.toml
+
+# Binaries are downloaded automatically - not included in package
+prune footsiesgym/binaries
+
+# Include protocol buffer files and generated Python files
+recursive-include footsiesgym/footsies *.proto
+recursive-include footsiesgym/footsies *.json
+recursive-include footsiesgym/footsies/game/proto *.py
+
+# Exclude development and build artifacts
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude *.so
+global-exclude .git*
+global-exclude .DS_Store
+global-exclude *.egg-info
+
+# Exclude development directories that shouldn't be in the package
+prune .git
+prune experimentation
+prune scripts
+prune testing

@@ -1,0 +1,182 @@
+{
+  "common_state": {
+    "start": 0,
+    "length": 1
+  },
+  "frame_count": {
+    "start": 1,
+    "length": 1
+  },
+  "player_position_x": {
+    "start": 2,
+    "length": 1
+  },
+  "velocity_x": {
+    "start": 3,
+    "length": 1
+  },
+  "is_dead": {
+    "start": 4,
+    "length": 1
+  },
+  "vital_health": {
+    "start": 5,
+    "length": 1
+  },
+  "guard_health": {
+    "start": 6,
+    "length": 4
+  },
+  "current_action_id": {
+    "start": 10,
+    "length": 17
+  },
+  "current_action_frame": {
+    "start": 27,
+    "length": 1
+  },
+  "current_action_frame_count": {
+    "start": 28,
+    "length": 1
+  },
+  "current_action_remaining_frames": {
+    "start": 29,
+    "length": 1
+  },
+  "is_action_end": {
+    "start": 30,
+    "length": 1
+  },
+  "is_always_cancelable": {
+    "start": 31,
+    "length": 1
+  },
+  "current_action_hit_count": {
+    "start": 32,
+    "length": 1
+  },
+  "current_hit_stun_frame": {
+    "start": 33,
+    "length": 1
+  },
+  "is_in_hit_stun": {
+    "start": 34,
+    "length": 1
+  },
+  "sprite_shake_position": {
+    "start": 35,
+    "length": 1
+  },
+  "max_sprite_shake_frame": {
+    "start": 36,
+    "length": 1
+  },
+  "is_face_right": {
+    "start": 37,
+    "length": 1
+  },
+  "current_frame_advantage": {
+    "start": 38,
+    "length": 1
+  },
+  "would_next_forward_input_dash": {
+    "start": 39,
+    "length": 1
+  },
+  "would_next_backward_input_dash": {
+    "start": 40,
+    "length": 1
+  },
+  "special_attack_progress": {
+    "start": 41,
+    "length": 1
+  },
+  "opponent_frame_count": {
+    "start": 42,
+    "length": 1
+  },
+  "opponent_player_position_x": {
+    "start": 43,
+    "length": 1
+  },
+  "opponent_velocity_x": {
+    "start": 44,
+    "length": 1
+  },
+  "opponent_is_dead": {
+    "start": 45,
+    "length": 1
+  },
+  "opponent_vital_health": {
+    "start": 46,
+    "length": 1
+  },
+  "opponent_guard_health": {
+    "start": 47,
+    "length": 4
+  },
+  "opponent_current_action_id": {
+    "start": 51,
+    "length": 17
+  },
+  "opponent_current_action_frame": {
+    "start": 68,
+    "length": 1
+  },
+  "opponent_current_action_frame_count": {
+    "start": 69,
+    "length": 1
+  },
+  "opponent_current_action_remaining_frames": {
+    "start": 70,
+    "length": 1
+  },
+  "opponent_is_action_end": {
+    "start": 71,
+    "length": 1
+  },
+  "opponent_is_always_cancelable": {
+    "start": 72,
+    "length": 1
+  },
+  "opponent_current_action_hit_count": {
+    "start": 73,
+    "length": 1
+  },
+  "opponent_current_hit_stun_frame": {
+    "start": 74,
+    "length": 1
+  },
+  "opponent_is_in_hit_stun": {
+    "start": 75,
+    "length": 1
+  },
+  "opponent_sprite_shake_position": {
+    "start": 76,
+    "length": 1
+  },
+  "opponent_max_sprite_shake_frame": {
+    "start": 77,
+    "length": 1
+  },
+  "opponent_is_face_right": {
+    "start": 78,
+    "length": 1
+  },
+  "opponent_current_frame_advantage": {
+    "start": 79,
+    "length": 1
+  },
+  "opponent_would_next_forward_input_dash": {
+    "start": 80,
+    "length": 1
+  },
+  "opponent_would_next_backward_input_dash": {
+    "start": 81,
+    "length": 1
+  },
+  "opponent_special_attack_progress": {
+    "start": 82,
+    "length": 1
+  }
+}
