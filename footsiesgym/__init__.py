@@ -12,7 +12,7 @@ from .binary_manager import get_binary_manager
 from .footsies import encoder, typing
 from .footsies.footsies_env import FootsiesEnv
 
-__version__ = "0.7.2"
+__version__ = "1.0.0"
 __all__ = ["FootsiesEnv", "encoder", "typing", "make"]
 
 # Initialize binary manager (but don't download yet - wait until needed)

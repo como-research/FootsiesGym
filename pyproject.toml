@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "footsies-gym"
-version = "0.7.2"
+version = "1.0.0"
 description = "A reinforcement learning environment for HiFight's Footsies game"
 readme = "README.md"
 license = "GPL-3.0-only"
@@ -16,20 +16,20 @@ maintainers = [
 ]
 keywords = ["reinforcement learning", "multi-agent", "fighting game", "footsies", "gymnasium"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
 
     "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Games/Entertainment :: Simulation",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "gymnasium",
     "numpy>=1.24.0",
@@ -74,7 +74,7 @@ include-package-data = true
 
 [tool.black]
 line-length = 88
-target-version = ['py38']
+target-version = ['py310']
 
 [tool.isort]
 profile = "black"

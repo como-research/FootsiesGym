@@ -15,7 +15,7 @@ The environment wraps the open-source Unity implementation, augmented with a gRP
 ## Installation
 
 ```bash
-pip install footsies-gym
+uv add footsies-gym          # or: pip install footsies-gym
 ```
 
 Or install from source:
@@ -23,7 +23,7 @@ Or install from source:
 ```bash
 git clone https://github.com/como-research/FootsiesGym.git
 cd FootsiesGym
-pip install -e .
+uv sync                      # or: pip install -e .
 ```
 
 Game binaries are downloaded automatically on first use and verified with SHA256 checksums — no manual binary setup is required on Linux or macOS.
@@ -247,6 +247,17 @@ Solid arrows are the per-step data flow; dotted arrows run once, on first use. T
 Environment steps per second vs. number of parallel environments, with $P$ concurrent game-server processes. See [`benchmarking/`](benchmarking/) to reproduce these results. When increasing $P$, we launch additional game servers. For example, $P=2$ launches the Footsies game binary twice. The number of parallel environments corresponds to the `num_envs` environment configuration paramer.
 
 
+
+## Development
+
+The project is managed with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv sync --all-extras         # create the venv with all extras
+uv run pytest                # run the test suite (-m "not slow" to skip server tests)
+uv build                     # build sdist + wheel
+uv publish                   # publish to PyPI
+```
 
 ## Citation
 
