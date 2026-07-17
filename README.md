@@ -247,13 +247,13 @@ uv publish                   # publish to PyPI
 If you use FootsiesGym in your research, please cite:
 
 ```bibtex
-@article{mcdonald2026footsies,
-  title={FootsiesGym: A Fighting Game Benchmark for Two-Player
-               Zero-Sum Imperfect-Information Games},
-  author    = {McDonald, Chase and Tsang, Nathan and Kerr, Wesley N.},
+@article{mcdonald2026footsiesgym,
+  title={FootsiesGym: A Fighting Game Benchmark for Two-Player Zero-Sum Imperfect-Information Games},
+  author={McDonald, Chase and Tsang, Nathan and Kerr, Wesley N},
   journal={arXiv preprint arXiv:2607.06514},
   year={2026}
 }
+
 ```
 
 ## License
