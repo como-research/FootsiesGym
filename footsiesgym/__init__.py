@@ -24,6 +24,7 @@ def make(
     platform: str = "linux",
     launch_binaries: bool = True,
     rllib: bool = False,
+    backend: str = "grpc",
 ):
     """
     Create a FootsiesGym environment.
@@ -35,11 +36,13 @@ def make(
         rllib: If True, wrap the environment for RLlib (requires ray[rllib]).
             For vectorized mode (num_envs > 1), uses VectorizedFootsiesRLlibEnv.
             For single-env mode, uses ParallelPettingZooEnv wrapper.
+        backend: "grpc" (the Unity game server) or "jax" (the in-process JAX
+            port; binaries are not needed and launch_binaries is ignored).
 
     Returns:
         A FootsiesEnv (PettingZoo ParallelEnv), or an RLlib MultiAgentEnv if rllib=True.
     """
-    if launch_binaries:
+    if launch_binaries and backend == "grpc":
         assert platform in ("linux", "mac"), (
             "Automated binary launching is supported on Linux and MacOS. "
             "Windows is not supported."
@@ -54,11 +57,13 @@ def make(
         default_config.update(config)
 
     if rllib and default_config.get("num_envs", 1) > 1:
+        if backend != "grpc":
+            raise ValueError("The vectorized RLlib wrapper requires backend='grpc'.")
         from footsiesgym.wrappers import VectorizedFootsiesRLlibEnv
 
         return VectorizedFootsiesRLlibEnv(default_config)
 
-    env = FootsiesEnv(config=default_config)
+    env = FootsiesEnv(config=default_config, backend=backend)
 
     if rllib:
         from footsiesgym.wrappers import wrap_rllib

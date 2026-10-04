@@ -2,6 +2,7 @@ import collections
 import functools
 import os
 import platform
+import socket
 import subprocess
 import time
 from typing import Any
@@ -28,6 +29,14 @@ class FootsiesEnv(ParallelEnv):
       - Vectorized (num_envs>1): Uses VectorizedFootsiesService,
         numpy array state, circular-buffer action delay. Returns
         batched arrays of shape (num_envs, ...) per agent key.
+
+    ``backend`` selects the game implementation:
+      - "grpc" (default): the Unity game server, in either mode above.
+      - "jax": the bit-identical JAX port in footsiesgym.jax, no binaries
+        needed. ``reset``/``step`` run one game with the single-env API.
+        For batched training, ``jax_env`` is the functional
+        ``FootsiesJaxEnv`` (Sardine-compatible), and ``jax_reset``/``jax_step``
+        its jitted ``reset``/``step`` (see footsiesgym.jax.env).
     """
 
     metadata = {"render_modes": ["human"], "name": "footsies_v0"}
@@ -39,6 +48,7 @@ class FootsiesEnv(ParallelEnv):
         self,
         config: dict[Any, Any] = None,
         render_mode: str | None = None,
+        backend: str = "grpc",
     ):
         super().__init__()
         if render_mode is not None:
@@ -55,6 +65,14 @@ class FootsiesEnv(ParallelEnv):
 
         # ── Shared config ──────────────────────────────────────
         self.num_envs: int = config.get("num_envs", 1)
+        if backend not in ("grpc", "jax"):
+            raise ValueError(f"Unknown backend {backend!r}, expected 'grpc' or 'jax'.")
+        self.backend = backend
+        if backend == "jax" and self.num_envs != 1:
+            raise ValueError(
+                "backend='jax' runs one game per env; batch games with "
+                "jax.vmap(env.jax_reset) and jax.vmap(env.jax_step) instead of num_envs."
+            )
         self.vectorized: bool = self.num_envs > 1
 
         self.return_fight_state_in_infos = config.get(
@@ -102,17 +120,19 @@ class FootsiesEnv(ParallelEnv):
 
         port = config.get("port", None)
         self.headless = config.get("headless", True)
-        if port is None:
+        if port is None and backend == "grpc":
             port = portpicker.pick_unused_port()
 
         self.server_process = None
         self._reset_called = False
         launch_binaries = config.get("launch_binaries", False)
-        if launch_binaries:
+        if launch_binaries and backend == "grpc":
             self._launch_binaries(port=port)
 
         # ── Mode-specific init ─────────────────────────────────
-        if self.vectorized:
+        if self.backend == "jax":
+            self._init_jax(config)
+        elif self.vectorized:
             self._init_vectorized(config, port)
         else:
             self._init_single(config, port)
@@ -234,6 +254,8 @@ class FootsiesEnv(ParallelEnv):
         options: dict | None = None,
     ) -> tuple[dict[AgentID, ObsType], dict[AgentID, Any]]:
         self._reset_called = True
+        if self.backend == "jax":
+            return self._reset_jax(seed)
         if self.vectorized:
             return self._reset_vectorized()
         return self._reset_single()
@@ -243,6 +265,8 @@ class FootsiesEnv(ParallelEnv):
             "reset() must be called before step() after the environment "
             "is initialized."
         )
+        if self.backend == "jax":
+            return self._step_jax(actions)
         if self.vectorized:
             return self._step_vectorized(actions)
         return self._step_single(actions)
@@ -622,6 +646,14 @@ class FootsiesEnv(ParallelEnv):
             obs["p1"][done] = reset_obs["p1"][done]
             obs["p2"][done] = reset_obs["p2"][done]
 
+            # Guard-break detection restarts from the reset guard health.
+            self._last_guard_health[done, 0] = np.asarray(
+                reset_raw.p1_guard_health, dtype=np.int64
+            )[done]
+            self._last_guard_health[done, 1] = np.asarray(
+                reset_raw.p2_guard_health, dtype=np.int64
+            )[done]
+
         rewards = {"p1": p1_rewards, "p2": p2_rewards}
         terminateds = {"p1": terminated, "p2": terminated}
         truncateds = {"p1": truncated, "p2": truncated}
@@ -637,6 +669,79 @@ class FootsiesEnv(ParallelEnv):
         self._prev_executed[mask] = constants.EnvActions.NONE
         self._holding_special[mask] = False
         self._reward_budget[mask] = self.win_reward_scaling_coeff
+
+    # ──────────────────────────────────────────────────────────
+    # JAX backend
+    # ──────────────────────────────────────────────────────────
+
+    def _init_jax(self, config):
+        import jax
+
+        from footsiesgym.jax.env import FootsiesJaxEnv
+
+        if self.return_fight_state_in_infos:
+            raise ValueError(
+                "return_fight_state_in_infos is not supported with backend='jax'."
+            )
+        self._jax_env = FootsiesJaxEnv(config)
+        self._jax_reset = jax.jit(self._jax_env.reset)
+        self._jax_step = jax.jit(self._jax_env.step)
+        self._jax_step_env = jax.jit(self._jax_env.step_env)
+        self._jax_state = None
+        self._jax_key = jax.random.key(0)
+
+    def _require_jax(self, name):
+        if self.backend != "jax":
+            raise RuntimeError(f"{name} is only available with backend='jax'")
+
+    @property
+    def jax_env(self):
+        """The functional ``FootsiesJaxEnv`` behind this env."""
+        self._require_jax("jax_env")
+        return self._jax_env
+
+    @property
+    def jax_reset(self):
+        """Jitted ``(key) -> (obs, state, infos)`` for one game; vmap to batch."""
+        self._require_jax("jax_reset")
+        return self._jax_reset
+
+    @property
+    def jax_step(self):
+        """Jitted ``(key, state, actions) -> (obs, state, rewards, terminateds,
+        truncateds, infos)`` for one game; vmap to batch. Resets finished games."""
+        self._require_jax("jax_step")
+        return self._jax_step
+
+    def _reset_jax(self, seed):
+        import jax
+
+        self.agents = self.possible_agents.copy()
+        if seed is not None:
+            self._jax_key = jax.random.key(seed)
+        self._jax_key, key = jax.random.split(self._jax_key)
+        obs, self._jax_state, _ = self._jax_reset(key)
+        observations = {a: np.asarray(obs[a]) for a in self.agents}
+        return observations, {a: {} for a in self.agents}
+
+    def _step_jax(self, actions):
+        import jax
+
+        self._jax_key, key = jax.random.split(self._jax_key)
+        actions = {a: np.int32(actions[a]) for a in self.possible_agents}
+        # No automatic reset: PettingZoo returns the terminal observation.
+        obs, self._jax_state, rew, term, trunc, _ = self._jax_step_env(
+            key, self._jax_state, actions
+        )
+        agents = self.possible_agents
+        observations = {a: np.asarray(obs[a]) for a in agents}
+        rewards = {a: float(rew[a]) for a in agents}
+        terminateds = {a: bool(term[a]) for a in agents}
+        truncateds = {a: bool(trunc[a]) for a in agents}
+        infos = {a: {} for a in self.agents}
+        if terminateds["p1"] or truncateds["p1"]:
+            self.agents = []
+        return observations, rewards, terminateds, truncateds, infos
 
     # ──────────────────────────────────────────────────────────
     # Shared utilities
@@ -729,23 +834,13 @@ class FootsiesEnv(ParallelEnv):
                 check=False,
                 capture_output=True,
             )
-            command = [
-                "arch",
-                "-x86_64",
-                binary_path,
-                "-batchmode",
-                "--grpc",
-                "--port",
-                str(port),
-            ]
+            command = ["arch", "-x86_64", binary_path]
         else:
-            command = [
-                binary_path,
-                "-batchmode",
-                "--grpc",
-                "--port",
-                str(port),
-            ]
+            command = [binary_path]
+        # -batchmode tells Unity not to open a window, so only pass it headless.
+        if self.headless:
+            command.append("-batchmode")
+        command += ["--grpc", "--port", str(port)]
 
         if (
             binary_platform == "linux"
@@ -759,22 +854,35 @@ class FootsiesEnv(ParallelEnv):
 
         print("Launching with command:", command)
 
-        if self.headless:
-            self.server_process = subprocess.Popen(
-                command,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        else:
-            self.server_process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
+        # Unity logs to stdout continuously; an unread PIPE would fill and
+        # block the game, so discard it (Unity also writes Player.log).
+        self.server_process = subprocess.Popen(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
         binary_type = "headless" if self.headless else "windowed"
+        self._wait_for_server(port)
         print(f"Launched {binary_type} footsies binary on port " f"{port}.")
-        time.sleep(5)
+
+    def _wait_for_server(self, port: int, timeout: float = 60.0):
+        """Blocks until the game server accepts connections on ``port``."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if self.server_process.poll() is not None:
+                raise RuntimeError(
+                    "Footsies server exited with code "
+                    f"{self.server_process.returncode} before it started."
+                )
+            try:
+                with socket.create_connection(("127.0.0.1", port), timeout=1.0):
+                    return
+            except OSError:
+                time.sleep(0.25)
+        raise TimeoutError(
+            f"Footsies server did not open port {port} within {timeout:.0f}s."
+        )
 
     def close(self):
         """Clean up resources when the environment is closed."""

@@ -73,3 +73,29 @@ with the same `(label, num_envs)` overwrites that row.
   whenever `num_envs == 1`, so there is no "vectorized N=1" row reachable
   through `make()`. The ablation skips it; the design contribution of the
   vectorized service is visible starting at N=2.
+
+## JAX backend
+
+`bench_jax_throughput.py` measures the JAX backend the way a JAX training
+loop drives it: `FootsiesJaxEnv(...).vectorize(num_envs)`, random actions
+sampled on device, finished games reset inside `step`, and many steps per
+jitted `lax.scan`. Rows go to the same CSV with the label `jax_<device>`:
+
+```bash
+python benchmarking/bench_jax_throughput.py --num-envs 1,16,256,1024,4096,16384,65536
+JAX_PLATFORMS=cpu python benchmarking/bench_jax_throughput.py --num-envs 1,256,4096
+```
+
+Measured with frame_skip=4, action_delay=0, JAX 0.10.2, on an RTX 3090 and a
+48-core CPU (CPU column measured before the float32-only movement update) (env-steps per second):
+
+| N | GPU | CPU |
+|---|---|---|
+| 1 | 3.7k | 5.7k |
+| 256 | 857k | 37k |
+| 4,096 | 11.8M | 99k |
+| 16,384 | 21.3M | 112k |
+| 65,536 | 30.7M | — |
+| 262,144 | 32.9M | — |
+
+For comparison, the best Unity-server row is about 48k env-steps/s (N=128, P=4).
