@@ -17,6 +17,8 @@ The environment is a PettingZoo `ParallelEnv` that runs the game in one of two b
 
 ## Installation
 
+FootsiesGym requires Python 3.12 or newer.
+
 ```bash
 pip install footsies-gym           # or: uv add footsies-gym
 pip install "footsies-gym[jax]"    # with the JAX backend
@@ -146,7 +148,7 @@ Notes:
 - `step` resets a finished game itself: the returned obs and state come from a fresh game, and the rewards and done flags from the episode that ended. `step_env` is the same step without the reset.
 - Rewards are float32 (the float64 value rounded once) unless `jax_enable_x64` is on.
 - Parity with the Unity binary is tested frame by frame (`testing/test_jax_backend.py`). For a larger check, run `python -m footsiesgym.jax.validation`. Unlike a fresh reset, Unity's vectorized server keeps a few fighter fields (hit stun, frame advantage, proximity-guard flags) from the previous episode when it resets a game.
-- Unity's Mono runtime does float math in double precision. The port reproduces it with float32 arithmetic only, so it is exact on every JAX backend and version (JAX >= 0.4.38).
+- Unity's Mono runtime does float math in double precision. The port reproduces it with float32 arithmetic only, so it is exact on every JAX backend.
 - After changing the Unity assets, regenerate the frame data with `python scripts/extract_unity_frame_data.py <path-to-FootsiesV2>`.
 
 ## Game Server

@@ -23,13 +23,13 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Games/Entertainment :: Simulation",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     "gymnasium",
     "numpy>=1.24.0",
@@ -41,7 +41,7 @@ dependencies = [
 
 [project.optional-dependencies]
 jax = [
-    "jax>=0.4.38",
+    "jax>=0.11.2",
 ]
 rllib = [
     "ray[rllib]>=2.46.0",
@@ -77,7 +77,7 @@ include-package-data = true
 
 [tool.black]
 line-length = 88
-target-version = ['py310']
+target-version = ['py312']
 
 [tool.isort]
 profile = "black"

@@ -416,6 +416,10 @@ def _move(position_x, delta, sign):
     float32 position in [-8, 8]. Only float32 error-free transformations
     are used, so the result is exact on every backend, without float64.
     """
+    # XLA (JAX 0.11) does not keep this float32 arithmetic exact when an
+    # operand is a compile-time constant (e.g. the first frame after a reset
+    # traced in the same jit), so hide the operands from the compiler.
+    position_x, delta, sign = jax.lax.optimization_barrier((position_x, delta, sign))
     hi, lo, tiny = delta[0] * sign, delta[1] * sign, delta[2]  # sign is +-1: exact
     s, e = _two_sum(position_x, hi)  # s + e == position_x + hi
     t, t_error = _two_sum(e, lo)  # t + t_error == e + lo

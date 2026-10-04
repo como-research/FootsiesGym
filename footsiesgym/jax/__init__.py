@@ -24,7 +24,16 @@ Use ``FootsiesJaxEnv`` directly for JAX training loops (for example
 ``footsiesgym.make(backend="jax")`` for a single-game PettingZoo env.
 """
 
-from .env import FootsiesJaxEnv
-from .game import FootsiesGame
+try:
+    import jax  # noqa: F401
+except ModuleNotFoundError as e:
+    raise ModuleNotFoundError(
+        "footsiesgym.jax needs JAX >= 0.11.2. "
+        'Install it with: pip install "footsies-gym[jax]"',
+        name=e.name,
+    ) from e
+
+from .env import FootsiesJaxEnv  # noqa: E402
+from .game import FootsiesGame  # noqa: E402
 
 __all__ = ["FootsiesGame", "FootsiesJaxEnv"]

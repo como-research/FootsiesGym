@@ -222,6 +222,40 @@ def test_movement_is_exact():
         )
 
 
+def test_movement_is_exact_with_constant_operands():
+    """XLA must not get to fold or specialize the exact arithmetic (JAX 0.11)."""
+    positions = np.arange(0, np.float32(8).view(np.int32), 104729, dtype=np.int32)
+    positions = positions.view(np.float32)
+    for speed in (3.0, -2.2, 7.0, -0.5):
+        delta = fd.exact_delta(np.float32(speed))
+        p = np.concatenate([positions, -positions])
+        product = np.float64(np.float32(speed)) * np.float64(fd.FIXED_DELTA_TIME)
+        expected = (p.astype(np.float64) + product).astype(np.float32)
+        # Positions and delta are compile-time constants here.
+        got = jax.jit(lambda: fighter._move(jnp.asarray(p), jnp.asarray(delta), 1.0))()
+        np.testing.assert_array_equal(
+            np.asarray(got).view(np.int32), expected.view(np.int32), err_msg=f"{speed}"
+        )
+
+
+def test_first_steps_traced_with_reset():
+    """Reset and the first steps in one jit (constant inputs) equal runtime ones."""
+    env = FootsiesJaxEnv(action_delay=0)
+    actions = np.random.default_rng(0).integers(0, 6, (4, 2)).astype(np.int32)
+
+    def episode(actions):
+        _, state, _ = env.reset(jax.random.key(0))
+        observations = []
+        for a in actions:
+            obs, state, *_ = env.step_env(None, state, {"p1": a[0], "p2": a[1]})
+            observations.append(obs["p1"])
+        return jnp.stack(observations)
+
+    folded = jax.jit(lambda: episode(jnp.asarray(actions)))()
+    runtime = jax.jit(episode)(jnp.asarray(actions))
+    np.testing.assert_array_equal(_bits(folded), _bits(runtime))
+
+
 def test_jax_backend_rejects_num_envs():
     with pytest.raises(ValueError, match="vmap"):
         FootsiesEnv({"num_envs": 4}, backend="jax")
