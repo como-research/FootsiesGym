@@ -2,6 +2,7 @@ import collections
 import functools
 import os
 import platform
+import socket
 import subprocess
 import time
 from typing import Any
@@ -833,23 +834,13 @@ class FootsiesEnv(ParallelEnv):
                 check=False,
                 capture_output=True,
             )
-            command = [
-                "arch",
-                "-x86_64",
-                binary_path,
-                "-batchmode",
-                "--grpc",
-                "--port",
-                str(port),
-            ]
+            command = ["arch", "-x86_64", binary_path]
         else:
-            command = [
-                binary_path,
-                "-batchmode",
-                "--grpc",
-                "--port",
-                str(port),
-            ]
+            command = [binary_path]
+        # -batchmode tells Unity not to open a window, so only pass it headless.
+        if self.headless:
+            command.append("-batchmode")
+        command += ["--grpc", "--port", str(port)]
 
         if (
             binary_platform == "linux"
@@ -863,22 +854,35 @@ class FootsiesEnv(ParallelEnv):
 
         print("Launching with command:", command)
 
-        if self.headless:
-            self.server_process = subprocess.Popen(
-                command,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        else:
-            self.server_process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
+        # Unity logs to stdout continuously; an unread PIPE would fill and
+        # block the game, so discard it (Unity also writes Player.log).
+        self.server_process = subprocess.Popen(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
         binary_type = "headless" if self.headless else "windowed"
+        self._wait_for_server(port)
         print(f"Launched {binary_type} footsies binary on port " f"{port}.")
-        time.sleep(5)
+
+    def _wait_for_server(self, port: int, timeout: float = 60.0):
+        """Blocks until the game server accepts connections on ``port``."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if self.server_process.poll() is not None:
+                raise RuntimeError(
+                    "Footsies server exited with code "
+                    f"{self.server_process.returncode} before it started."
+                )
+            try:
+                with socket.create_connection(("127.0.0.1", port), timeout=1.0):
+                    return
+            except OSError:
+                time.sleep(0.25)
+        raise TimeoutError(
+            f"Footsies server did not open port {port} within {timeout:.0f}s."
+        )
 
     def close(self):
         """Clean up resources when the environment is closed."""
