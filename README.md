@@ -151,6 +151,22 @@ Notes:
 - Unity's Mono runtime does float math in double precision. The port reproduces it with float32 arithmetic only, so it is exact on every JAX backend.
 - After changing the Unity assets, regenerate the frame data with `python scripts/extract_unity_frame_data.py <path-to-FootsiesV2>`.
 
+## C/CUDA Backend
+
+`footsiesgym.c` runs the same game and environment as plain C functions ([`csrc/`](csrc/)) that compile for the CPU (OpenMP) and CUDA, byte-identical to the JAX port and the Unity game. The library is compiled on first use, so it needs a C compiler (and `nvcc` for the GPU):
+
+```python
+from footsiesgym.c import FootsiesCEnv, FootsiesFFIEnv
+
+env = FootsiesCEnv(num_envs=4096, frame_skip=4, action_delay=8)   # numpy, multi-threaded
+obs = env.reset()
+obs, rewards, terminateds, truncateds = env.step(actions)         # actions: int[4096, 2]
+
+env = FootsiesFFIEnv(frame_skip=4, action_delay=8).vectorize(4096)  # same API as FootsiesJaxEnv
+```
+
+`FootsiesFFIEnv` is a drop-in for `FootsiesJaxEnv(...).vectorize(n)`: each `step` is one XLA FFI call into the CUDA kernel on GPU, or the OpenMP loop on CPU. See [`csrc/README.md`](csrc/README.md) for the byte-identity rules (compiler flags are part of the spec) and the validation (`testing/test_c_backend.py`).
+
 ## Game Server
 
 Binaries are hosted on a CDN (`footsiesgym.chasemcd.com`) with [GitHub Releases](https://github.com/como-research/FootsiesGym/releases) as a fallback. They are downloaded on first use, verified with SHA256 checksums and cached, so you need to be online the first time you run.
