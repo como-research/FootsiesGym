@@ -180,3 +180,4 @@ cython_debug/
 
 # crash blobs
 *.blob
+*.bundle

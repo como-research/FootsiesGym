@@ -6,8 +6,13 @@ import numpy as np
 def wrap_rllib(env):
     """Wrap a FootsiesEnv (PettingZoo ParallelEnv) for use with RLlib.
 
+    A single-game env goes through RLlib's own ``ParallelPettingZooEnv``. A
+    vectorized one (``num_envs > 1``) becomes ``VectorizedFootsiesRLlibEnv``,
+    with agents ``p1_i`` / ``p2_i`` for game ``i``. Register it with RLlib as
+    ``tune.register_env("footsies", lambda cfg: wrap_rllib(footsiesgym.make(cfg)))``.
+
     Args:
-        env: A FootsiesEnv instance (pettingzoo.ParallelEnv).
+        env: A FootsiesEnv instance returning numpy arrays on the CPU.
 
     Returns:
         An RLlib MultiAgentEnv wrapping the given environment.
@@ -22,15 +27,19 @@ def wrap_rllib(env):
             "ray[rllib] is required to use the RLlib wrapper. "
             "Install it with: pip install 'footsies-gym[rllib]'"
         )
-
+    if (
+        getattr(env, "tensor_type", "numpy") != "numpy"
+        or getattr(env, "device", "cpu") != "cpu"
+    ):
+        raise ValueError("The RLlib wrappers need tensor_type='numpy' on the CPU.")
+    if getattr(env, "num_envs", 1) > 1:
+        return VectorizedFootsiesRLlibEnv(env)
     return ParallelPettingZooEnv(env)
 
 
 def _get_vectorized_env_class():
     """Build and cache the VectorizedFootsiesRLlibEnv class."""
     from ray.rllib.env.multi_agent_env import MultiAgentEnv
-
-    from footsiesgym.footsies.footsies_env import FootsiesEnv
 
     class VectorizedFootsiesRLlibEnv(MultiAgentEnv):
         """Wraps a vectorized FootsiesEnv as an RLlib MultiAgentEnv.
@@ -46,10 +55,10 @@ def _get_vectorized_env_class():
             return fresh obs as a new episode start.
         """
 
-        def __init__(self, config):
+        def __init__(self, env):
             super().__init__()
-            self.num_games = config.get("num_envs", 1)
-            self.env = FootsiesEnv(config=config)
+            self.num_games = env.num_envs
+            self.env = env
 
             obs_space = self.env.observation_space("p1")
             act_space = self.env.action_space("p1")
@@ -63,6 +72,13 @@ def _get_vectorized_env_class():
                     self._agent_ids.add(aid)
                     self.observation_spaces[aid] = obs_space
                     self.action_spaces[aid] = act_space
+            # Every game always has both players (finished games reset).
+            self.possible_agents = [
+                f"{prefix}_{i}"
+                for i in range(self.num_games)
+                for prefix in ("p1", "p2")
+            ]
+            self.agents = list(self.possible_agents)
 
             # Single-space versions for RLlib internals
             self.observation_space = obs_space
@@ -125,9 +141,9 @@ def _get_vectorized_env_class():
 _VectorizedClass = None
 
 
-def VectorizedFootsiesRLlibEnv(config):
-    """Factory that returns a VectorizedFootsiesRLlibEnv instance."""
+def VectorizedFootsiesRLlibEnv(env):
+    """Factory that wraps a vectorized FootsiesEnv for RLlib."""
     global _VectorizedClass
     if _VectorizedClass is None:
         _VectorizedClass = _get_vectorized_env_class()
-    return _VectorizedClass(config)
+    return _VectorizedClass(env)

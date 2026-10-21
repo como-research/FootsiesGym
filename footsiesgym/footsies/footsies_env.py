@@ -2,6 +2,7 @@ import collections
 import functools
 import os
 import platform
+import socket
 import subprocess
 import time
 from typing import Any
@@ -11,11 +12,26 @@ import portpicker
 from gymnasium import spaces
 from pettingzoo import ParallelEnv
 
+from footsiesgym import tensors
 from footsiesgym.footsies.typing import ActionType, AgentID, ObsType
 
 from ..binary_manager import get_binary_manager
 from . import encoder
 from .game import constants, footsies_game
+
+
+def merge_config(config: dict | None, overrides: dict) -> dict:
+    """``config`` with ``overrides`` (keyword arguments) added: the two are
+    equivalent ways to set a key, and setting one to two values is an error."""
+    merged = dict(config or {})
+    for key, value in overrides.items():
+        if key in merged and merged[key] != value:
+            raise ValueError(
+                f"{key!r} is set twice: {merged[key]!r} in the config and "
+                f"{value!r} as a keyword argument"
+            )
+        merged[key] = value
+    return merged
 
 
 class FootsiesEnv(ParallelEnv):
@@ -28,9 +44,21 @@ class FootsiesEnv(ParallelEnv):
       - Vectorized (num_envs>1): Uses VectorizedFootsiesService,
         numpy array state, circular-buffer action delay. Returns
         batched arrays of shape (num_envs, ...) per agent key.
+
+    Every setting is a config key, and can equally be passed as a keyword
+    argument (``FootsiesEnv(config, num_envs=64)``). Besides the game settings:
+      - ``backend``: "grpc" (default), the Unity game server; or "c", the
+        bit-identical C port in footsiesgym.c (no binaries needed; a C
+        compiler builds it on first use, nvcc for the GPU). Both modes above.
+      - ``device`` ("c" backend): "cpu" (default; SIMD + OpenMP over
+        ``num_threads`` threads) or "cuda" / "cuda:N" (one kernel per step;
+        observations and rewards stay on the GPU).
+      - ``tensor_type``: the arrays returned, "numpy" (default), "torch" or
+        "jax", on ``device``. Actions may be any of the three.
     """
 
     metadata = {"render_modes": ["human"], "name": "footsies_v0"}
+    possible_agents: list[AgentID] = ["p1", "p2"]
     LINUX_ZIP_PATH_HEADLESS = "binaries/footsies_linux_headless_9c6b36f.zip"
     LINUX_ZIP_PATH_WINDOWED = "binaries/footsies_linux_windowed_9c6b36f.zip"
     SPECIAL_CHARGE_FRAMES = 60
@@ -39,6 +67,7 @@ class FootsiesEnv(ParallelEnv):
         self,
         config: dict[Any, Any] = None,
         render_mode: str | None = None,
+        **kwargs: Any,
     ):
         super().__init__()
         if render_mode is not None:
@@ -49,12 +78,27 @@ class FootsiesEnv(ParallelEnv):
             )
         self.render_mode = render_mode
 
-        if config is None:
-            config = {}
+        config = merge_config(config, kwargs)
         self.config = config
 
         # ── Shared config ──────────────────────────────────────
         self.num_envs: int = config.get("num_envs", 1)
+        backend = config.get("backend", "grpc")
+        if backend == "jax":
+            raise ValueError(
+                "backend='jax' was removed; use backend='c' (the same game, "
+                "bit for bit), with tensor_type='jax' for JAX arrays. The JAX "
+                "port is on the archive/jax-replica branch."
+            )
+        if backend not in ("grpc", "c"):
+            raise ValueError(f"Unknown backend {backend!r}, expected 'grpc' or 'c'.")
+        self.backend = backend
+        self.device: str = config.get("device", "cpu")
+        if backend == "grpc" and self.device != "cpu":
+            raise ValueError("device only applies to backend='c'")
+        self.tensor_type: str = tensors.check_tensor_type(
+            config.get("tensor_type", "numpy")
+        )
         self.vectorized: bool = self.num_envs > 1
 
         self.return_fight_state_in_infos = config.get(
@@ -102,17 +146,19 @@ class FootsiesEnv(ParallelEnv):
 
         port = config.get("port", None)
         self.headless = config.get("headless", True)
-        if port is None:
+        if port is None and backend == "grpc":
             port = portpicker.pick_unused_port()
 
         self.server_process = None
         self._reset_called = False
         launch_binaries = config.get("launch_binaries", False)
-        if launch_binaries:
+        if launch_binaries and backend == "grpc":
             self._launch_binaries(port=port)
 
         # ── Mode-specific init ─────────────────────────────────
-        if self.vectorized:
+        if self.backend == "c":
+            self._init_c(config)
+        elif self.vectorized:
             self._init_vectorized(config, port)
         else:
             self._init_single(config, port)
@@ -234,18 +280,36 @@ class FootsiesEnv(ParallelEnv):
         options: dict | None = None,
     ) -> tuple[dict[AgentID, ObsType], dict[AgentID, Any]]:
         self._reset_called = True
+        if self.backend == "c":
+            return self._reset_c(seed)
         if self.vectorized:
-            return self._reset_vectorized()
-        return self._reset_single()
+            obs, infos = self._reset_vectorized()
+        else:
+            obs, infos = self._reset_single()
+        return tensors.convert(obs, self.tensor_type), infos
 
     def step(self, actions):
         assert self._reset_called, (
             "reset() must be called before step() after the environment "
             "is initialized."
         )
+        if self.backend == "c":
+            return self._step_c(actions)
         if self.vectorized:
-            return self._step_vectorized(actions)
-        return self._step_single(actions)
+            actions = {a: tensors.to_numpy(actions[a]) for a in self.possible_agents}
+            out = self._step_vectorized(actions)
+        else:
+            actions = {a: int(actions[a]) for a in actions}
+            out = self._step_single(actions)
+        obs, rewards, terminateds, truncateds, infos = out
+        convert = functools.partial(tensors.convert, tensor_type=self.tensor_type)
+        return (
+            convert(obs),
+            convert(rewards),
+            convert(terminateds),
+            convert(truncateds),
+            infos,
+        )
 
     # ──────────────────────────────────────────────────────────
     # Single-env implementation
@@ -622,6 +686,14 @@ class FootsiesEnv(ParallelEnv):
             obs["p1"][done] = reset_obs["p1"][done]
             obs["p2"][done] = reset_obs["p2"][done]
 
+            # Guard-break detection restarts from the reset guard health.
+            self._last_guard_health[done, 0] = np.asarray(
+                reset_raw.p1_guard_health, dtype=np.int64
+            )[done]
+            self._last_guard_health[done, 1] = np.asarray(
+                reset_raw.p2_guard_health, dtype=np.int64
+            )[done]
+
         rewards = {"p1": p1_rewards, "p2": p2_rewards}
         terminateds = {"p1": terminated, "p2": terminated}
         truncateds = {"p1": truncated, "p2": truncated}
@@ -637,6 +709,53 @@ class FootsiesEnv(ParallelEnv):
         self._prev_executed[mask] = constants.EnvActions.NONE
         self._holding_special[mask] = False
         self._reward_budget[mask] = self.win_reward_scaling_coeff
+
+    # ──────────────────────────────────────────────────────────
+    # C backend
+    # ──────────────────────────────────────────────────────────
+
+    def _init_c(self, config):
+        from footsiesgym.c.runtime import CRuntime
+
+        if self.return_fight_state_in_infos:
+            raise ValueError(
+                "return_fight_state_in_infos is not supported with backend='c'."
+            )
+        self._c_env = CRuntime(
+            self.num_envs,
+            config,
+            device=self.device,
+            tensor_type=self.tensor_type,
+            num_threads=config.get("num_threads", 1 if self.num_envs == 1 else None),
+            impl=config.get("impl", "auto"),
+        )
+
+    def _reset_c(self, seed):
+        # The game is deterministic: there is nothing to seed.
+        self.agents = self.possible_agents.copy()
+        obs = self._c_env.reset()
+        if self.vectorized:
+            return obs, {a: {} for a in self.agents}
+        observations = {a: obs[a][0] for a in self.agents}
+        return observations, {a: {} for a in self.agents}
+
+    def _step_c(self, actions):
+        if self.vectorized:
+            # Finished games reset inside step, as on the game server.
+            obs, rew, term, trunc = self._c_env.step(actions)
+            return obs, rew, term, trunc, {a: {} for a in self.agents}
+        actions = {a: np.array([int(actions[a])], np.int32) for a in self.agents}
+        # No automatic reset: PettingZoo returns the terminal observation.
+        obs, rew, term, trunc = self._c_env.step(actions, autoreset=False)
+        agents = self.possible_agents
+        observations = {a: obs[a][0] for a in agents}
+        rewards = {a: float(rew[a][0]) for a in agents}
+        terminateds = {a: bool(term[a][0]) for a in agents}
+        truncateds = {a: bool(trunc[a][0]) for a in agents}
+        infos = {a: {} for a in self.agents}
+        if terminateds["p1"] or truncateds["p1"]:
+            self.agents = []
+        return observations, rewards, terminateds, truncateds, infos
 
     # ──────────────────────────────────────────────────────────
     # Shared utilities
@@ -759,8 +878,26 @@ class FootsiesEnv(ParallelEnv):
         )
 
         binary_type = "headless" if self.headless else "windowed"
+        self._wait_for_server(port)
         print(f"Launched {binary_type} footsies binary on port " f"{port}.")
-        time.sleep(5)
+
+    def _wait_for_server(self, port: int, timeout: float = 60.0):
+        """Blocks until the game server accepts connections on ``port``."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if self.server_process.poll() is not None:
+                raise RuntimeError(
+                    "Footsies server exited with code "
+                    f"{self.server_process.returncode} before it started."
+                )
+            try:
+                with socket.create_connection(("127.0.0.1", port), timeout=1.0):
+                    return
+            except OSError:
+                time.sleep(0.25)
+        raise TimeoutError(
+            f"Footsies server did not open port {port} within {timeout:.0f}s."
+        )
 
     def close(self):
         """Clean up resources when the environment is closed."""

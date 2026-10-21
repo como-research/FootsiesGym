@@ -73,3 +73,41 @@ with the same `(label, num_envs)` overwrites that row.
   whenever `num_envs == 1`, so there is no "vectorized N=1" row reachable
   through `make()`. The ablation skips it; the design contribution of the
   vectorized service is visible starting at N=2.
+
+## C/CUDA backend
+
+`bench_c_throughput.py` measures `footsiesgym.c` with random actions and
+finished games reset inside `step`. Rows go to the same CSV with the label
+`c_<backend>`:
+
+- `--backend make`: `footsiesgym.make(backend="c", ...)` as users run it
+  (`--device`, `--tensor-type`, `--threads`): new output arrays every step.
+- `--backend cpu`: `FootsiesCEnv` (numpy, OpenMP; `--threads`, `--impl`).
+- `--backend ffi`: `FootsiesFFIEnv` inside a jitted `lax.scan`, the way a
+  JAX training loop drives it (needs JAX).
+- `--backend cuda`: the CUDA kernel alone, through its C API.
+
+```bash
+python benchmarking/bench_c_throughput.py --backend make --device cuda --tensor-type torch --num-envs 16384,262144
+python benchmarking/bench_c_throughput.py --backend cpu --threads 24 --num-envs 16384,65536
+python benchmarking/bench_c_throughput.py --backend ffi --num-envs 4096,65536,262144
+python benchmarking/bench_c_throughput.py --backend cuda --num-envs 65536,1048576
+```
+
+Measured with frame_skip=4, action_delay=0, on an RTX 3090 and a Threadripper
+3960X (24 cores, AVX2, so `impl="scalar"`) (env-steps per second):
+
+| N | CUDA kernel | FFI (GPU) | CPU, 1 thread | CPU, 24 threads |
+|---|---|---|---|---|
+| 4,096 | 79M | 60M | | |
+| 16,384 | 107M | 98M | 2.2M | 40M |
+| 65,536 | 136M | 128M | 2.3M | 43M |
+| 262,144 | 154M | 149M | | |
+| 1,048,576 | 165M | 156M | | |
+
+Through `make()` (new arrays every step, waiting for each step's outputs):
+`device="cuda"`, torch 66M at 16,384 envs and 114M at 262,144; JAX 34M and
+105M; `device="cpu"` with 24 threads, about 33M. A jitted JAX loop over
+`make(functional=True)` runs at the FFI column's rates.
+
+For comparison, the best Unity-server row is about 48k env-steps/s (N=128, P=4).
