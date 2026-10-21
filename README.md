@@ -62,7 +62,6 @@ while True:
 Solid arrows are the per-step data flow; dotted arrows run once, on first use. The environment steps the game `frame_skip` frames per call, and in vectorized mode (`num_envs > 1`) a single server hosts N games stepped in one batched RPC.
 
 
-
 ## Configuration
 
 ### Creating an Environment
