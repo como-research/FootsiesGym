@@ -2,6 +2,8 @@
 
 <p align="left">
   <a href="https://arxiv.org/abs/2607.06514"><img src="https://img.shields.io/badge/arXiv-2607.06514-b31b1b.svg" alt="arXiv:2607.06514"></a>
+  <a href="https://pypi.org/project/footsies-gym/"><img src="https://img.shields.io/pypi/v/footsies-gym.svg" alt="PyPI version"></a>
+  <a href="https://pepy.tech/project/footsies-gym"><img src="https://static.pepy.tech/badge/footsies-gym" alt="PyPI downloads"></a>
 </p>
 
 <p align="center">
