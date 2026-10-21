@@ -851,7 +851,9 @@ class FootsiesEnv(ParallelEnv):
             command = ["arch", "-x86_64", binary_path]
         else:
             command = [binary_path]
-        # -batchmode tells Unity not to open a window, so only pass it headless.
+
+        # -batchmode disables rendering, so the windowed build would only
+        # show a black window.
         if self.headless:
             command.append("-batchmode")
         command += ["--grpc", "--port", str(port)]
@@ -868,8 +870,7 @@ class FootsiesEnv(ParallelEnv):
 
         print("Launching with command:", command)
 
-        # Unity logs to stdout continuously; an unread PIPE would fill and
-        # block the game, so discard it (Unity also writes Player.log).
+        # Output is discarded: an unread PIPE fills up and blocks the game.
         self.server_process = subprocess.Popen(
             command,
             stdout=subprocess.DEVNULL,

@@ -2,6 +2,8 @@
 
 <p align="left">
   <a href="https://arxiv.org/abs/2607.06514"><img src="https://img.shields.io/badge/arXiv-2607.06514-b31b1b.svg" alt="arXiv:2607.06514"></a>
+  <a href="https://pypi.org/project/footsies-gym/"><img src="https://img.shields.io/pypi/v/footsies-gym.svg" alt="PyPI version"></a>
+  <a href="https://pepy.tech/project/footsies-gym"><img src="https://static.pepy.tech/badge/footsies-gym" alt="PyPI downloads"></a>
 </p>
 
 <p align="center">
@@ -61,6 +63,34 @@ The C backend runs the same game in-process, with no binaries, on the CPU or a C
 env = footsiesgym.make(backend="c", num_envs=65536, device="cuda", tensor_type="torch")
 obs, infos = env.reset()                   # obs["p1"]: torch.float32 (65536, 88) on cuda:0
 obs, rewards, terminateds, truncateds, infos = env.step({"p1": a1, "p2": a2})
+```
+
+For JAX, `functional=True` returns the env as pure functions of an explicit state, so the whole rollout compiles into one jitted program (it runs on JAX's default device; see [Jitted JAX training loops](#jitted-jax-training-loops)):
+
+```python
+import jax
+import footsiesgym
+
+env = footsiesgym.make(backend="c", num_envs=4096, functional=True)
+
+@jax.jit
+def rollout(key):
+    obs, state, infos = env.reset(key)
+
+    def step(carry, key):
+        state, obs = carry
+        k1, k2 = jax.random.split(key)
+        actions = {                                   # replace with your policy
+            "p1": jax.random.randint(k1, (env.num_envs,), 0, env.action_dim),
+            "p2": jax.random.randint(k2, (env.num_envs,), 0, env.action_dim),
+        }
+        obs, state, rewards, terminateds, truncateds, infos = env.step(key, state, actions)
+        return (state, obs), rewards["p1"]
+
+    _, rewards = jax.lax.scan(step, (state, obs), jax.random.split(key, 1000))
+    return rewards                                    # (1000, 4096)
+
+rewards = rollout(jax.random.key(0))
 ```
 
 ## Architecture
