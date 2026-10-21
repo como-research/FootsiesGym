@@ -3,8 +3,9 @@
 Loads ``frame_data.json`` (extracted from the Unity assets by
 ``scripts/extract_unity_frame_data.py``) and flattens the per-action lists
 into dense tables indexed by ``[action, frame]``. The data is fixed: every
-table is a read-only numpy array, and ``tables()`` returns them as JAX
-arrays for use inside traced code.
+table is a read-only numpy array. ``scripts/gen_c_frame_data.py`` writes the
+C header (``csrc/frame_data.gen.h``) from these tables, and the tests use
+the constants.
 
 Actions are referred to by *index* into ``ACTION_IDS``, which is sorted
 ascending and therefore matches the one-hot order of
@@ -23,8 +24,6 @@ import json
 import pathlib
 from typing import NamedTuple
 
-import jax
-import jax.numpy as jnp
 import numpy as np
 
 f32 = np.float32
@@ -124,10 +123,8 @@ class FrameData(NamedTuple):
     attack_hit_stun: np.ndarray
     attack_guard_stun: np.ndarray
     attack_guard_break_stun: np.ndarray
-    # Fighter.GetSpecialAttackProgress() for 0..hold consecutive held frames.
-    # Precomputed with IEEE numpy division: XLA does not guarantee correctly
-    # rounded float32 division (on CPU it multiplies by an approximate
-    # reciprocal).
+    # Fighter.GetSpecialAttackProgress() for 0..hold consecutive held frames,
+    # with IEEE float32 division.
     special_attack_progress: np.ndarray
 
 
@@ -138,7 +135,7 @@ def exact_delta(speed) -> np.ndarray:
     is exact in float64 and splits exactly into ``hi + lo``. ``tiny`` is half
     a float64 ulp of the product: Mono rounds ``position + product`` to
     float64 first, which returns the product itself, then ``hi``, whenever
-    ``|position| <= tiny`` (see ``fighter._move``).
+    ``|position| <= tiny`` (the tests probe positions around it).
     """
     product = np.float64(f32(speed)) * np.float64(FIXED_DELTA_TIME)
     hi = f32(product)
@@ -239,8 +236,3 @@ FRAME_DATA = _build()
 # backward subtracts, i.e. adds the negated delta.
 FORWARD_DELTA = exact_delta(FORWARD_MOVE_SPEED)
 BACKWARD_DELTA = exact_delta(-BACKWARD_MOVE_SPEED)
-
-
-def tables() -> FrameData:
-    """``FRAME_DATA`` as JAX arrays (embedded as constants when traced)."""
-    return jax.tree.map(jnp.asarray, FRAME_DATA)

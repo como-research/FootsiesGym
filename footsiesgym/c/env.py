@@ -1,22 +1,22 @@
 """The FOOTSIES environment on the C backend, batched over ``num_envs`` games.
 
-``FootsiesCEnv`` takes the same config as ``FootsiesJaxEnv`` and returns the
-same values, bit for bit, as ``FootsiesJaxEnv(config).vectorize(num_envs)``,
-as numpy arrays::
+``FootsiesCEnv`` takes ``FootsiesEnv``'s env config and returns the same
+values, bit for bit, as the vectorized ``FootsiesEnv`` on the Unity game
+server, as numpy arrays::
 
     env = FootsiesCEnv(num_envs=1024, frame_skip=4, action_delay=8)
     obs = env.reset()                                  # {"p1": (N, 88), "p2": ...}
     obs, rewards, terminateds, truncateds = env.step({"p1": a1, "p2": a2})
 
-``step`` resets a finished game itself (like ``FootsiesJaxEnv.step``): the
-returned observation is the fresh game's, the rewards and done flags are the
-episode's that ended. Pass ``autoreset=False`` to ``step`` for
-``FootsiesJaxEnv.step_env``.
+``step`` resets a finished game itself: the returned observation is the
+fresh game's, the rewards and done flags are the episode's that ended. Pass
+``autoreset=False`` to ``step`` to keep the terminal observation instead.
 
 The returned arrays are views of buffers reused by the next ``step``; copy
 them to keep them.
 """
 
+import itertools
 from typing import Any
 
 import numpy as np
@@ -24,10 +24,12 @@ import numpy as np
 from .lib import ENV_CONFIG, RAW_STATE, load, ptr, raw_to_fields
 
 AGENTS = ("p1", "p2")
+# At most three guard-health decreases per player per episode (3 -> 0).
+MAX_BUDGET_DEDUCTIONS = 3
 
 
 def make_config(config: dict[str, Any] | None = None, **kwargs: Any) -> dict[str, Any]:
-    """``FootsiesJaxEnv``'s config keys, with its defaults."""
+    """``FootsiesEnv``'s env config keys, with its defaults."""
     config = {**(config or {}), **kwargs}
     return dict(
         frame_skip=config.get("frame_skip", 4),
@@ -41,15 +43,46 @@ def make_config(config: dict[str, Any] | None = None, **kwargs: Any) -> dict[str
 
 
 def reward_table(config: dict[str, Any]) -> np.ndarray:
-    """``RewardFunction._build_table()`` as float32 (float64 rounded once)."""
-    from footsiesgym.jax.rewards import RewardFunction
+    """Rewards matching ``FootsiesEnv._step_vectorized`` bit for bit.
 
-    fn = RewardFunction(
-        win_reward=config["win_reward_scaling_coeff"],
-        guard_break_reward=config["guard_break_reward"],
-        use_reward_budget=config["use_reward_budget"],
+    ``FootsiesEnv`` accumulates rewards in float64. A step's rewards depend
+    only on whose guard broke, who died and how many guard-break deductions
+    each reward budget has had, so the exact float64 operation sequence is
+    evaluated once for every combination (then rounded once to float32).
+
+    Indexed [p2_guard_broken, p1_guard_broken, p2_dead, p1_dead,
+    p1_deductions, p2_deductions] -> (p1, p2) rewards.
+    """
+    win = float(config["win_reward_scaling_coeff"])
+    gb = float(config["guard_break_reward"])
+    assert gb * 3 < win, (
+        "Guard break reward total must be less than the win "
+        "reward (guard break reward * 3 < win reward)"
     )
-    return np.asarray(fn._build_table()).astype(np.float32)
+    n = MAX_BUDGET_DEDUCTIONS + 1
+    table = np.zeros((2, 2, 2, 2, n, n, 2), dtype=np.float64)
+    for p2_gb, p1_gb, p2_dead, p1_dead, k1, k2 in itertools.product(
+        (0, 1), (0, 1), (0, 1), (0, 1), range(n), range(n)
+    ):
+        budget = np.full(2, win, dtype=np.float64)
+        for _ in range(k1):
+            budget[0] -= gb
+        for _ in range(k2):
+            budget[1] -= gb
+        p1, p2 = np.float64(0.0), np.float64(0.0)
+        if gb != 0:
+            if p2_gb:
+                p1 += gb
+                p2 -= gb
+            if p1_gb:
+                p2 += gb
+                p1 -= gb
+        p1 += budget[0] * np.float64(p2_dead)
+        p2 -= budget[0] * np.float64(p2_dead)
+        p2 += budget[1] * np.float64(p1_dead)
+        p1 -= budget[1] * np.float64(p1_dead)
+        table[p2_gb, p1_gb, p2_dead, p1_dead, k1, k2] = (p1, p2)
+    return table.astype(np.float32)
 
 
 def env_config(config: dict[str, Any], max_delay_steps: int) -> np.ndarray:
@@ -87,11 +120,14 @@ def aligned_zeros(shape, dtype, align: int = 64) -> np.ndarray:
 class FootsiesCEnv:
     """``num_envs`` FOOTSIES games stepped together on the CPU.
 
-    ``impl="batch"`` (default) steps blocks of 16 games with SIMD
+    ``impl="batch"`` steps blocks of 16 games with SIMD
     (``csrc/footsies_batch.h``, AVX-512 when the CPU has it) in
     struct-of-arrays state allocated once; ``impl="scalar"`` steps one game
-    at a time (``csrc/footsies.h``). Both are byte-identical and use OpenMP
-    across cores. Every buffer is preallocated, so ``step`` allocates nothing.
+    at a time (``csrc/footsies.h``). ``impl="auto"`` (default) picks "batch"
+    when the library was built with AVX-512 and "scalar" otherwise: without
+    AVX-512 the portable batches are about 2.5x slower than scalar. Both are
+    byte-identical and use OpenMP across cores. Every buffer is preallocated,
+    so ``step`` allocates nothing.
     """
 
     def __init__(
@@ -100,12 +136,14 @@ class FootsiesCEnv:
         config: dict[str, Any] | None = None,
         num_threads: int | None = None,
         lib=None,
-        impl: str = "batch",
+        impl: str = "auto",
         **kwargs: Any,
     ):
-        if impl not in ("batch", "scalar"):
-            raise ValueError(f"impl must be 'batch' or 'scalar', not {impl!r}")
+        if impl not in ("auto", "batch", "scalar"):
+            raise ValueError(f"impl must be 'auto', 'batch' or 'scalar', not {impl!r}")
         self.lib = lib or load()
+        if impl == "auto":
+            impl = "batch" if self.lib.batch_avx512() else "scalar"
         if num_threads is not None:
             self.lib.set_num_threads(int(num_threads))
         self.impl = impl

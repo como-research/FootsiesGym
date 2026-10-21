@@ -1,9 +1,9 @@
 """The C environment as an XLA FFI call, for JAX training loops.
 
-``FootsiesFFIEnv(config).vectorize(num_envs)`` has the interface of
-``FootsiesJaxEnv(config).vectorize(num_envs)`` (Sardine's functional API)
-and returns the same values bit for bit, but each ``step`` is a single
-custom call into ``csrc/`` (the CUDA kernel on GPU, OpenMP on CPU)::
+``FootsiesFFIEnv(config).vectorize(num_envs)`` has Sardine's functional
+multi-agent API and returns the same values as ``FootsiesCEnv``, bit for
+bit; each ``step`` is a single custom call into ``csrc/`` (the CUDA kernel
+on GPU, OpenMP on CPU)::
 
     env = FootsiesFFIEnv(frame_skip=4).vectorize(4096)
     obs, state, infos = env.reset(key)
@@ -23,9 +23,8 @@ import jax.numpy as jnp
 import numpy as np
 from gymnasium import spaces
 
-from footsiesgym.jax._struct import Struct, struct
-
 from . import build
+from ._struct import Struct, struct
 from .env import env_config, make_config
 
 AGENTS = ("p1", "p2")
@@ -119,7 +118,10 @@ def _has_gpu() -> bool:
 
 
 class FootsiesFFIEnv:
-    """``FootsiesJaxEnv``'s config and spaces; ``vectorize`` gives the env."""
+    """The env config and spaces (Sardine's functional multi-agent API);
+    ``vectorize`` gives the env."""
+
+    possible_agents = list(AGENTS)
 
     def __init__(self, config: dict[str, Any] | None = None, **kwargs: Any):
         self.config = make_config(config, **kwargs)
@@ -142,8 +144,9 @@ class FootsiesFFIEnv:
 
 
 class VectorizedFootsiesFFIEnv:
-    """``num_envs`` games, stepped by one FFI call (same API as
-    ``VectorizedFootsiesJaxEnv``)."""
+    """``num_envs`` games, stepped by one FFI call."""
+
+    possible_agents = list(AGENTS)
 
     def __init__(self, env: FootsiesFFIEnv, num_envs: int):
         register()
@@ -187,11 +190,12 @@ class VectorizedFootsiesFFIEnv:
         return self._split(obs), CEnvState(data=data), {a: {} for a in AGENTS}
 
     def step(self, key, state: CEnvState, actions: dict[str, jax.Array]):
-        """One step, resetting finished games (``FootsiesJaxEnv.step``)."""
+        """One step, resetting finished games (``FootsiesCEnv.step``)."""
         return self._step(state, actions, autoreset=True)
 
     def step_env(self, key, state: CEnvState, actions: dict[str, jax.Array]):
-        """One step without the automatic reset (``FootsiesJaxEnv.step_env``)."""
+        """One step without the automatic reset
+        (``FootsiesCEnv.step(autoreset=False)``)."""
         return self._step(state, actions, autoreset=False)
 
     def _step(self, state: CEnvState, actions, autoreset: bool):

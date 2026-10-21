@@ -38,6 +38,7 @@ _SIGNATURES = {
     "footsies_env_info": ([_P, _P, _P, _I], None),
     "footsies_env_games": ([_P, _P, _I], None),
     "footsies_batch_width": ([], _I),
+    "footsies_batch_avx512": ([], _I),
     "footsies_batch_new": ([_P, _I], _P),
     "footsies_batch_free": ([_P], None),
     "footsies_batch_reset": ([_P, _P], None),
@@ -45,6 +46,7 @@ _SIGNATURES = {
     "footsies_batch_game_step": ([_P, _P, _I], None),
     "footsies_batch_get": ([_P, _P], None),
     "footsies_batch_set": ([_P, _P], None),
+    "footsies_split_outputs": ([_P] * 10 + [_I], None),
 }
 
 _PER_PLAYER = [

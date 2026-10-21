@@ -17,11 +17,18 @@ import subprocess
 import sys
 import tempfile
 
-CSRC = pathlib.Path(
-    os.environ.get(
-        "FOOTSIES_CSRC", pathlib.Path(__file__).resolve().parents[2] / "csrc"
-    )
-)
+
+def _find_csrc() -> pathlib.Path:
+    """``$FOOTSIES_CSRC``, else ``csrc/`` at the repo root (a checkout), else
+    the copy installed inside this package (a wheel)."""
+    if os.environ.get("FOOTSIES_CSRC"):
+        return pathlib.Path(os.environ["FOOTSIES_CSRC"])
+    here = pathlib.Path(__file__).resolve().parent
+    repo = here.parents[1] / "csrc"
+    return repo if (repo / "footsies.h").exists() else here / "csrc"
+
+
+CSRC = _find_csrc()
 HEADERS = ("footsies.h", "footsies_batch.h", "footsies_avx512.h", "frame_data.gen.h")
 
 # Part of the spec: never -ffast-math / -Ofast, and no FMA contraction.
@@ -63,13 +70,14 @@ def _compiler(cxx: bool = False) -> str:
 
 
 def nvcc_path() -> str | None:
-    """nvcc from $NVCC, $CUDA_HOME/bin or PATH."""
+    """nvcc from $NVCC, $CUDA_HOME/bin, PATH or /usr/local/cuda/bin."""
     if os.environ.get("NVCC"):
         return os.environ["NVCC"]
     for home in (os.environ.get("CUDA_HOME"), os.environ.get("CUDA_PATH")):
         if home and (pathlib.Path(home) / "bin" / "nvcc").exists():
             return str(pathlib.Path(home) / "bin" / "nvcc")
-    return shutil.which("nvcc")
+    default = pathlib.Path("/usr/local/cuda/bin/nvcc")
+    return shutil.which("nvcc") or (str(default) if default.exists() else None)
 
 
 def ffi_include_dir() -> str | None:
@@ -192,7 +200,10 @@ def build_cuda(arch: str | None = None, ffi: bool | None = None) -> pathlib.Path
     """
     nvcc = nvcc_path()
     if nvcc is None:
-        raise RuntimeError("the CUDA build needs nvcc (set NVCC or CUDA_HOME)")
+        raise RuntimeError(
+            "the CUDA build needs nvcc (set NVCC or CUDA_HOME); to run the C "
+            "backend on the CPU instead, use jax.default_device(jax.devices('cpu')[0])"
+        )
     arch = arch or os.environ.get("FOOTSIES_CUDA_ARCH", "native")
     include = ffi_include_dir() if ffi is not False else None
     flags = NVCCFLAGS + [f"-arch={arch}"]

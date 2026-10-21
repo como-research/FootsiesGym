@@ -8,9 +8,8 @@ from .lib import RAW_STATE, load, ptr, raw_to_fields
 class CGames:
     """``n`` ``BattleSimulation``s stepped together, one frame (or StepN) at a time.
 
-    The same interface as ``footsiesgym.jax.validation.JaxReplay``: ``step``
-    takes ``(n, 2)`` input bits, and ``fields`` returns the BatchRawState
-    fields of every game.
+    ``step`` takes ``(n, 2)`` input bits, and ``fields`` returns the
+    BatchRawState fields of every game (as the Unity server reports them).
     """
 
     def __init__(self, num_games: int, lib=None):

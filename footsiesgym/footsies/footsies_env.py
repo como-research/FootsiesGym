@@ -12,11 +12,26 @@ import portpicker
 from gymnasium import spaces
 from pettingzoo import ParallelEnv
 
+from footsiesgym import tensors
 from footsiesgym.footsies.typing import ActionType, AgentID, ObsType
 
 from ..binary_manager import get_binary_manager
 from . import encoder
 from .game import constants, footsies_game
+
+
+def merge_config(config: dict | None, overrides: dict) -> dict:
+    """``config`` with ``overrides`` (keyword arguments) added: the two are
+    equivalent ways to set a key, and setting one to two values is an error."""
+    merged = dict(config or {})
+    for key, value in overrides.items():
+        if key in merged and merged[key] != value:
+            raise ValueError(
+                f"{key!r} is set twice: {merged[key]!r} in the config and "
+                f"{value!r} as a keyword argument"
+            )
+        merged[key] = value
+    return merged
 
 
 class FootsiesEnv(ParallelEnv):
@@ -30,16 +45,20 @@ class FootsiesEnv(ParallelEnv):
         numpy array state, circular-buffer action delay. Returns
         batched arrays of shape (num_envs, ...) per agent key.
 
-    ``backend`` selects the game implementation:
-      - "grpc" (default): the Unity game server, in either mode above.
-      - "jax": the bit-identical JAX port in footsiesgym.jax, no binaries
-        needed. ``reset``/``step`` run one game with the single-env API.
-        For batched training, ``jax_env`` is the functional
-        ``FootsiesJaxEnv`` (Sardine-compatible), and ``jax_reset``/``jax_step``
-        its jitted ``reset``/``step`` (see footsiesgym.jax.env).
+    Every setting is a config key, and can equally be passed as a keyword
+    argument (``FootsiesEnv(config, num_envs=64)``). Besides the game settings:
+      - ``backend``: "grpc" (default), the Unity game server; or "c", the
+        bit-identical C port in footsiesgym.c (no binaries needed; a C
+        compiler builds it on first use, nvcc for the GPU). Both modes above.
+      - ``device`` ("c" backend): "cpu" (default; SIMD + OpenMP over
+        ``num_threads`` threads) or "cuda" / "cuda:N" (one kernel per step;
+        observations and rewards stay on the GPU).
+      - ``tensor_type``: the arrays returned, "numpy" (default), "torch" or
+        "jax", on ``device``. Actions may be any of the three.
     """
 
     metadata = {"render_modes": ["human"], "name": "footsies_v0"}
+    possible_agents: list[AgentID] = ["p1", "p2"]
     LINUX_ZIP_PATH_HEADLESS = "binaries/footsies_linux_headless_9c6b36f.zip"
     LINUX_ZIP_PATH_WINDOWED = "binaries/footsies_linux_windowed_9c6b36f.zip"
     SPECIAL_CHARGE_FRAMES = 60
@@ -48,7 +67,7 @@ class FootsiesEnv(ParallelEnv):
         self,
         config: dict[Any, Any] = None,
         render_mode: str | None = None,
-        backend: str = "grpc",
+        **kwargs: Any,
     ):
         super().__init__()
         if render_mode is not None:
@@ -59,20 +78,27 @@ class FootsiesEnv(ParallelEnv):
             )
         self.render_mode = render_mode
 
-        if config is None:
-            config = {}
+        config = merge_config(config, kwargs)
         self.config = config
 
         # ── Shared config ──────────────────────────────────────
         self.num_envs: int = config.get("num_envs", 1)
-        if backend not in ("grpc", "jax"):
-            raise ValueError(f"Unknown backend {backend!r}, expected 'grpc' or 'jax'.")
-        self.backend = backend
-        if backend == "jax" and self.num_envs != 1:
+        backend = config.get("backend", "grpc")
+        if backend == "jax":
             raise ValueError(
-                "backend='jax' runs one game per env; batch games with "
-                "jax.vmap(env.jax_reset) and jax.vmap(env.jax_step) instead of num_envs."
+                "backend='jax' was removed; use backend='c' (the same game, "
+                "bit for bit), with tensor_type='jax' for JAX arrays. The JAX "
+                "port is on the archive/jax-replica branch."
             )
+        if backend not in ("grpc", "c"):
+            raise ValueError(f"Unknown backend {backend!r}, expected 'grpc' or 'c'.")
+        self.backend = backend
+        self.device: str = config.get("device", "cpu")
+        if backend == "grpc" and self.device != "cpu":
+            raise ValueError("device only applies to backend='c'")
+        self.tensor_type: str = tensors.check_tensor_type(
+            config.get("tensor_type", "numpy")
+        )
         self.vectorized: bool = self.num_envs > 1
 
         self.return_fight_state_in_infos = config.get(
@@ -130,8 +156,8 @@ class FootsiesEnv(ParallelEnv):
             self._launch_binaries(port=port)
 
         # ── Mode-specific init ─────────────────────────────────
-        if self.backend == "jax":
-            self._init_jax(config)
+        if self.backend == "c":
+            self._init_c(config)
         elif self.vectorized:
             self._init_vectorized(config, port)
         else:
@@ -254,22 +280,36 @@ class FootsiesEnv(ParallelEnv):
         options: dict | None = None,
     ) -> tuple[dict[AgentID, ObsType], dict[AgentID, Any]]:
         self._reset_called = True
-        if self.backend == "jax":
-            return self._reset_jax(seed)
+        if self.backend == "c":
+            return self._reset_c(seed)
         if self.vectorized:
-            return self._reset_vectorized()
-        return self._reset_single()
+            obs, infos = self._reset_vectorized()
+        else:
+            obs, infos = self._reset_single()
+        return tensors.convert(obs, self.tensor_type), infos
 
     def step(self, actions):
         assert self._reset_called, (
             "reset() must be called before step() after the environment "
             "is initialized."
         )
-        if self.backend == "jax":
-            return self._step_jax(actions)
+        if self.backend == "c":
+            return self._step_c(actions)
         if self.vectorized:
-            return self._step_vectorized(actions)
-        return self._step_single(actions)
+            actions = {a: tensors.to_numpy(actions[a]) for a in self.possible_agents}
+            out = self._step_vectorized(actions)
+        else:
+            actions = {a: int(actions[a]) for a in actions}
+            out = self._step_single(actions)
+        obs, rewards, terminateds, truncateds, infos = out
+        convert = functools.partial(tensors.convert, tensor_type=self.tensor_type)
+        return (
+            convert(obs),
+            convert(rewards),
+            convert(terminateds),
+            convert(truncateds),
+            infos,
+        )
 
     # ──────────────────────────────────────────────────────────
     # Single-env implementation
@@ -671,73 +711,47 @@ class FootsiesEnv(ParallelEnv):
         self._reward_budget[mask] = self.win_reward_scaling_coeff
 
     # ──────────────────────────────────────────────────────────
-    # JAX backend
+    # C backend
     # ──────────────────────────────────────────────────────────
 
-    def _init_jax(self, config):
-        import jax
-
-        from footsiesgym.jax.env import FootsiesJaxEnv
+    def _init_c(self, config):
+        from footsiesgym.c.runtime import CRuntime
 
         if self.return_fight_state_in_infos:
             raise ValueError(
-                "return_fight_state_in_infos is not supported with backend='jax'."
+                "return_fight_state_in_infos is not supported with backend='c'."
             )
-        self._jax_env = FootsiesJaxEnv(config)
-        self._jax_reset = jax.jit(self._jax_env.reset)
-        self._jax_step = jax.jit(self._jax_env.step)
-        self._jax_step_env = jax.jit(self._jax_env.step_env)
-        self._jax_state = None
-        self._jax_key = jax.random.key(0)
+        self._c_env = CRuntime(
+            self.num_envs,
+            config,
+            device=self.device,
+            tensor_type=self.tensor_type,
+            num_threads=config.get("num_threads", 1 if self.num_envs == 1 else None),
+            impl=config.get("impl", "auto"),
+        )
 
-    def _require_jax(self, name):
-        if self.backend != "jax":
-            raise RuntimeError(f"{name} is only available with backend='jax'")
-
-    @property
-    def jax_env(self):
-        """The functional ``FootsiesJaxEnv`` behind this env."""
-        self._require_jax("jax_env")
-        return self._jax_env
-
-    @property
-    def jax_reset(self):
-        """Jitted ``(key) -> (obs, state, infos)`` for one game; vmap to batch."""
-        self._require_jax("jax_reset")
-        return self._jax_reset
-
-    @property
-    def jax_step(self):
-        """Jitted ``(key, state, actions) -> (obs, state, rewards, terminateds,
-        truncateds, infos)`` for one game; vmap to batch. Resets finished games."""
-        self._require_jax("jax_step")
-        return self._jax_step
-
-    def _reset_jax(self, seed):
-        import jax
-
+    def _reset_c(self, seed):
+        # The game is deterministic: there is nothing to seed.
         self.agents = self.possible_agents.copy()
-        if seed is not None:
-            self._jax_key = jax.random.key(seed)
-        self._jax_key, key = jax.random.split(self._jax_key)
-        obs, self._jax_state, _ = self._jax_reset(key)
-        observations = {a: np.asarray(obs[a]) for a in self.agents}
+        obs = self._c_env.reset()
+        if self.vectorized:
+            return obs, {a: {} for a in self.agents}
+        observations = {a: obs[a][0] for a in self.agents}
         return observations, {a: {} for a in self.agents}
 
-    def _step_jax(self, actions):
-        import jax
-
-        self._jax_key, key = jax.random.split(self._jax_key)
-        actions = {a: np.int32(actions[a]) for a in self.possible_agents}
+    def _step_c(self, actions):
+        if self.vectorized:
+            # Finished games reset inside step, as on the game server.
+            obs, rew, term, trunc = self._c_env.step(actions)
+            return obs, rew, term, trunc, {a: {} for a in self.agents}
+        actions = {a: np.array([int(actions[a])], np.int32) for a in self.agents}
         # No automatic reset: PettingZoo returns the terminal observation.
-        obs, self._jax_state, rew, term, trunc, _ = self._jax_step_env(
-            key, self._jax_state, actions
-        )
+        obs, rew, term, trunc = self._c_env.step(actions, autoreset=False)
         agents = self.possible_agents
-        observations = {a: np.asarray(obs[a]) for a in agents}
-        rewards = {a: float(rew[a]) for a in agents}
-        terminateds = {a: bool(term[a]) for a in agents}
-        truncateds = {a: bool(trunc[a]) for a in agents}
+        observations = {a: obs[a][0] for a in agents}
+        rewards = {a: float(rew[a][0]) for a in agents}
+        terminateds = {a: bool(term[a][0]) for a in agents}
+        truncateds = {a: bool(trunc[a][0]) for a in agents}
         infos = {a: {} for a in self.agents}
         if terminateds["p1"] or truncateds["p1"]:
             self.agents = []

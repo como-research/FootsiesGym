@@ -2,7 +2,8 @@
 
 Reads the ScriptableObject assets of fighter F00 (FighterData, ActionData,
 AttackData) from a FootsiesV2 Unity checkout and writes
-``footsiesgym/jax/frame_data.json``, which the JAX backend loads at import.
+``footsiesgym/c/frame_data.json``, from which ``scripts/gen_c_frame_data.py``
+generates the C backend's frame data.
 
 Numbers are kept as the exact decimal strings Unity serialized so that the
 loader can convert them straight to float32 without a lossy intermediate.
@@ -19,9 +20,7 @@ import re
 import yaml
 
 FIGHTER_DIR = "Assets/Fighter/F00"
-OUT_PATH = (
-    pathlib.Path(__file__).resolve().parents[1] / "footsiesgym/jax/frame_data.json"
-)
+OUT_PATH = pathlib.Path(__file__).resolve().parents[1] / "footsiesgym/c/frame_data.json"
 
 
 def load_unity_yaml(path: pathlib.Path) -> dict:

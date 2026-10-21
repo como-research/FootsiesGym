@@ -18,7 +18,7 @@
 #endif
 
 #define EXPORT extern "C" __attribute__((visibility("default")))
-#define BLOCK 256
+#define BLOCK 128  // 240 registers/thread: 128 beats 256 by 11-18% on an RTX 3090
 
 // The frame data lives in global memory once; each block copies it to shared
 // memory. (Not __constant__: warps hold different actions, and constant
@@ -126,6 +126,51 @@ EXPORT int footsies_cuda_d2h(void* dst, const void* src, size_t bytes) {
     return (int)cudaMemcpy(dst, src, bytes, cudaMemcpyDeviceToHost);
 }
 EXPORT int footsies_cuda_synchronize(void) { return (int)cudaDeviceSynchronize(); }
+EXPORT int footsies_cuda_set_device(int device) { return (int)cudaSetDevice(device); }
+EXPORT int footsies_cuda_d2d(void* dst, const void* src, size_t bytes) {
+    return (int)cudaMemcpyAsync(dst, src, bytes, cudaMemcpyDeviceToDevice, 0);
+}
+
+// Everything above runs on the legacy default stream. A DLPack consumer on
+// another stream waits for it here (stream == NULL: the host waits instead).
+EXPORT int footsies_cuda_order_before(void* stream) {
+    if (stream == nullptr) return (int)cudaStreamSynchronize(0);
+    cudaEvent_t done;
+    cudaError_t err = cudaEventCreateWithFlags(&done, cudaEventDisableTiming);
+    if (err != cudaSuccess) return (int)err;
+    err = cudaEventRecord(done, 0);
+    if (err == cudaSuccess) err = cudaStreamWaitEvent((cudaStream_t)stream, done, 0);
+    cudaEventDestroy(done);
+    return (int)err;
+}
+
+// The reverse: our stream waits for work on `stream` (e.g. the actions a
+// torch / CuPy producer wrote there).
+EXPORT int footsies_cuda_wait_for(void* stream) {
+    cudaEvent_t done;
+    cudaError_t err = cudaEventCreateWithFlags(&done, cudaEventDisableTiming);
+    if (err != cudaSuccess) return (int)err;
+    err = cudaEventRecord(done, (cudaStream_t)stream);
+    if (err == cudaSuccess) err = cudaStreamWaitEvent(0, done, 0);
+    cudaEventDestroy(done);
+    return (int)err;
+}
+
+// (p1[i], p2[i]) -> actions[i] = {p1, p2} as int32, from int32 or int64 sources
+// already on the device (torch / JAX / CuPy action tensors).
+__global__ void footsies_pack_actions_kernel(const void* __restrict__ p1,
+                                             const void* __restrict__ p2, int wide,
+                                             int32_t* __restrict__ actions, int n) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    if (wide) {
+        actions[2 * i] = (int32_t)((const int64_t*)p1)[i];
+        actions[2 * i + 1] = (int32_t)((const int64_t*)p2)[i];
+    } else {
+        actions[2 * i] = ((const int32_t*)p1)[i];
+        actions[2 * i + 1] = ((const int32_t*)p2)[i];
+    }
+}
 
 EXPORT int footsies_cuda_env_reset(EnvState* states, float* obs, int n) {
     return launch_env_reset(states, obs, n, 0);
@@ -136,6 +181,13 @@ EXPORT int footsies_cuda_env_step(const EnvConfig* cfg, EnvState* states,
                                   const int32_t* actions, float* obs, float* rew,
                                   uint8_t* term, uint8_t* trunc, int autoreset, int n) {
     return launch_env_step(cfg, states, actions, obs, rew, term, trunc, autoreset, n, 0);
+}
+
+EXPORT int footsies_cuda_pack_actions(const void* p1, const void* p2, int elem_bytes,
+                                      int32_t* actions, int n) {
+    if (n <= 0) return 0;
+    footsies_pack_actions_kernel<<<blocks(n), BLOCK>>>(p1, p2, elem_bytes == 8, actions, n);
+    return (int)cudaGetLastError();
 }
 
 EXPORT int footsies_cuda_game_new(Game* games, int n) {

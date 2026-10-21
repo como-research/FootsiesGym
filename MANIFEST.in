@@ -11,6 +11,9 @@ recursive-include footsiesgym/footsies *.proto
 recursive-include footsiesgym/footsies *.json
 recursive-include footsiesgym/footsies/game/proto *.py
 
+# C/CUDA sources for footsiesgym.c (compiled on first use)
+recursive-include csrc *.h *.c *.cc *.cu README.md
+
 # Exclude development and build artifacts
 global-exclude __pycache__
 global-exclude *.py[co]

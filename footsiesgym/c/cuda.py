@@ -1,7 +1,8 @@
 """The CUDA build through its plain C API (ctypes), without JAX.
 
-Used to check the CUDA build against the CPU build byte for byte, and to
-benchmark the kernel on its own. For training, use ``FootsiesFFIEnv``.
+``CudaEnv`` is the GPU runtime behind ``footsiesgym.make(backend="c",
+device="cuda")``; the tests also use it (and ``CudaGames``) to check the CUDA
+build against the CPU build byte for byte.
 """
 
 import ctypes
@@ -26,6 +27,11 @@ _SIGNATURES = {
     "footsies_cuda_h2d": ([_P, _P, ctypes.c_size_t], _I),
     "footsies_cuda_d2h": ([_P, _P, ctypes.c_size_t], _I),
     "footsies_cuda_synchronize": ([], _I),
+    "footsies_cuda_set_device": ([_I], _I),
+    "footsies_cuda_d2d": ([_P, _P, ctypes.c_size_t], _I),
+    "footsies_cuda_order_before": ([_P], _I),
+    "footsies_cuda_wait_for": ([_P], _I),
+    "footsies_cuda_pack_actions": ([_P, _P, _I, _P, _I], _I),
     "footsies_cuda_env_reset": ([_P, _P, _I], _I),
     "footsies_cuda_env_step": ([_P, _P, _P, _P, _P, _P, _P, _I, _I], _I),
     "footsies_cuda_game_new": ([_P, _I], _I),
@@ -99,10 +105,18 @@ class DeviceArray:
 
 
 class CudaEnv:
-    """``FootsiesCEnv`` on the GPU: the same states, byte for byte."""
+    """``FootsiesCEnv`` on the GPU: the same states, byte for byte.
 
-    def __init__(self, num_envs: int, config=None, **kwargs):
+    Every buffer lives on CUDA device ``device``; ``step`` runs one kernel on
+    the legacy default stream.
+    """
+
+    def __init__(self, num_envs: int, config=None, device: int = 0, **kwargs):
         self.lib = load_cuda()
+        self.device = int(device)
+        if not 0 <= self.device < self.lib.device_count():
+            raise ValueError(f"no CUDA device {self.device}")
+        self.lib.check(self.lib.set_device(self.device))
         self.num_envs = n = num_envs
         self.config = make_config(config, **kwargs)
         self._config = env_config(self.config, self.lib.max_delay_steps)
@@ -116,10 +130,12 @@ class CudaEnv:
         self.trunc = new(np.zeros(n, np.uint8))
 
     def reset(self):
+        self.lib.check(self.lib.set_device(self.device))
         self.lib.check(self.lib.env_reset(self.state.ptr, self.obs.ptr, self.num_envs))
 
     def step(self, actions: np.ndarray | None = None, autoreset: bool = True):
         """One step; ``actions`` (N, 2) are uploaded first unless None."""
+        self.lib.check(self.lib.set_device(self.device))
         if actions is not None:
             self.actions.upload(actions)
         self.lib.check(
@@ -135,6 +151,26 @@ class CudaEnv:
                 self.num_envs,
             )
         )
+
+    def pack_actions(self, p1_ptr: int, p2_ptr: int, elem_bytes: int):
+        """Write ``actions`` from two (N,) int32 / int64 device arrays."""
+        self.lib.check(self.lib.set_device(self.device))
+        self.lib.check(
+            self.lib.pack_actions(
+                p1_ptr, p2_ptr, elem_bytes, self.actions.ptr, self.num_envs
+            )
+        )
+
+    def order_before(self, stream):
+        """Make ``stream`` (a cudaStream_t, or None: the host) wait for the
+        work launched so far."""
+        self.lib.check(self.lib.set_device(self.device))
+        self.lib.check(self.lib.order_before(stream))
+
+    def wait_for(self, stream):
+        """Make the env's stream wait for the work launched on ``stream``."""
+        self.lib.check(self.lib.set_device(self.device))
+        self.lib.check(self.lib.wait_for(stream))
 
     def synchronize(self):
         self.lib.check(self.lib.synchronize())

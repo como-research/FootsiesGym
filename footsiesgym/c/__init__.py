@@ -4,14 +4,16 @@ The game and env logic live in ``csrc/footsies.h`` as plain C functions that
 compile for both CPU and CUDA; this package builds the CPU library on first
 use and exposes it to Python:
 
-  * ``CGames``: batches of ``BattleSimulation``s stepped frame by frame
-    (the interface of ``footsiesgym.jax.validation.JaxReplay``).
-  * ``FootsiesCEnv``: ``FootsiesJaxEnv``'s environment, batched, on numpy
-    arrays, multi-threaded with OpenMP.
-  * ``FootsiesFFIEnv``: the same environment as an XLA FFI call (CPU or
-    CUDA), with ``FootsiesJaxEnv``'s functional API, for JAX training loops.
+  * ``footsiesgym.make(backend="c", device=..., tensor_type=...)`` is the
+    way in: ``runtime.CRuntime`` on ``FootsiesCEnv`` (CPU, numpy buffers,
+    SIMD + OpenMP) or ``cuda.CudaEnv`` (one kernel per step).
+  * ``FootsiesFFIEnv`` (needs JAX): the same step as an XLA FFI call, with
+    Sardine's functional API. ``tensor_type="jax"`` steps through it, and
+    ``make(functional=True)`` returns it for jitted JAX training loops.
+  * ``CGames``: batches of ``BattleSimulation``s stepped frame by frame.
 
-Both match the JAX port (and so the Unity game) bit for bit; see
+The simulation matches the Unity game bit for bit, and the environment
+matches ``FootsiesEnv`` on the Unity game server; see
 ``testing/test_c_backend.py``.
 """
 

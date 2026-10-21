@@ -269,7 +269,9 @@ class Experiment:
         )
 
     def env_creator(self, config, **kwargs):
-        return footsiesgym.make(config=config, rllib=True)
+        from footsiesgym.wrappers import wrap_rllib
+
+        return wrap_rllib(footsiesgym.make(config=config))
 
     def run(self):
         ray.init(

@@ -8,6 +8,8 @@
 #include "footsies.h"
 #include "footsies_batch.h"
 
+#include <string.h>
+
 // Below this many envs, waking the OpenMP threads costs more than it saves.
 #define OMP_MIN_ENVS 64
 
@@ -182,4 +184,27 @@ EXPORT void footsies_batch_get(const BatchEnv* b, EnvState* out) {
 
 EXPORT void footsies_batch_set(BatchEnv* b, const EnvState* in) {
     for (int i = 0; i < b->n; i++) lane_from_env_state(&b->blocks[i / BATCH_W], i % BATCH_W, &in[i]);
+}
+
+// ── Outputs for the caller ──
+
+// Per-agent copies of a step's outputs (obs [n][2][OBS_DIM] -> p1 / p2
+// [n][OBS_DIM], rew [n][2] -> p1 / p2 [n], done flags as is), in parallel:
+// first-touching new arrays from many threads is what makes this fast.
+EXPORT void footsies_split_outputs(const float* obs, const float* rew, const uint8_t* term,
+                                   const uint8_t* trunc, float* obs1, float* obs2,
+                                   float* rew1, float* rew2, uint8_t* term_out,
+                                   uint8_t* trunc_out, int n) {
+#pragma omp parallel for schedule(static) if (n >= OMP_MIN_ENVS)
+    for (int i = 0; i < n; i++) {
+        memcpy(obs1 + (size_t)i * OBS_DIM, obs + (size_t)i * 2 * OBS_DIM, OBS_DIM * sizeof(float));
+        memcpy(obs2 + (size_t)i * OBS_DIM, obs + ((size_t)i * 2 + 1) * OBS_DIM,
+               OBS_DIM * sizeof(float));
+        if (rew1) {
+            rew1[i] = rew[2 * i];
+            rew2[i] = rew[2 * i + 1];
+            term_out[i] = term[i];
+            trunc_out[i] = trunc[i];
+        }
+    }
 }
