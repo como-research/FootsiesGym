@@ -729,23 +729,15 @@ class FootsiesEnv(ParallelEnv):
                 check=False,
                 capture_output=True,
             )
-            command = [
-                "arch",
-                "-x86_64",
-                binary_path,
-                "-batchmode",
-                "--grpc",
-                "--port",
-                str(port),
-            ]
+            command = ["arch", "-x86_64", binary_path]
         else:
-            command = [
-                binary_path,
-                "-batchmode",
-                "--grpc",
-                "--port",
-                str(port),
-            ]
+            command = [binary_path]
+
+        # -batchmode disables rendering, so the windowed build would only
+        # show a black window.
+        if self.headless:
+            command.append("-batchmode")
+        command += ["--grpc", "--port", str(port)]
 
         if (
             binary_platform == "linux"
@@ -759,18 +751,12 @@ class FootsiesEnv(ParallelEnv):
 
         print("Launching with command:", command)
 
-        if self.headless:
-            self.server_process = subprocess.Popen(
-                command,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        else:
-            self.server_process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
+        # Output is discarded: an unread PIPE fills up and blocks the game.
+        self.server_process = subprocess.Popen(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
         binary_type = "headless" if self.headless else "windowed"
         print(f"Launched {binary_type} footsies binary on port " f"{port}.")
