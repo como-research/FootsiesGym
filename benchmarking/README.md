@@ -111,3 +111,22 @@ Through `make()` (new arrays every step, waiting for each step's outputs):
 `make(functional=True)` runs at the FFI column's rates.
 
 For comparison, the best Unity-server row is about 48k env-steps/s (N=128, P=4).
+
+### Figure
+
+`assets/throughput_c.png` (in the main README) and `figures/throughput_c.pdf`
+come from `figures/data/throughput_c.csv`. To make the figure again, run the
+three benchmarks to that CSV, then the plot script:
+
+```bash
+CSV=benchmarking/figures/data/throughput_c.csv
+N=1,16,256,1024,4096,16384,65536,262144,1048576
+python benchmarking/bench_c_throughput.py --backend ffi --num-envs $N --duration 5 --csv $CSV
+python benchmarking/bench_c_throughput.py --backend make --device cuda --tensor-type torch --num-envs $N --duration 5 --csv $CSV
+python benchmarking/bench_c_throughput.py --backend make --device cpu --threads 24 --num-envs 1,16,256,1024,4096,16384,65536,262144 --duration 5 --csv $CSV
+python benchmarking/plot_throughput.py
+```
+
+The figure shows the Unity server with P=4 (from `figures/data/throughput.csv`)
+as a reference. Close other programs that use the GPU before you run the GPU
+benchmarks.

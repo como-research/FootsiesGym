@@ -143,11 +143,16 @@ def bench_make(args, num_envs: int):
     else:
         pool, sync = host, lambda: None
     actions = [{"p1": pool[k, 0], "p2": pool[k, 1]} for k in range(ACTION_POOL)]
+    if num_envs == 1:  # the single-game API: scalar actions, no automatic reset
+        actions = [{a: int(v[a][0]) for a in v} for v in actions]
     i = [0]
 
     def step():
         out = env.step(actions[i[0] % ACTION_POOL])
-        if sync is None:
+        if num_envs == 1:
+            if out[2]["p1"] or out[3]["p1"]:
+                env.reset()
+        elif sync is None:
             jax.block_until_ready(out[:4])
         else:
             sync()

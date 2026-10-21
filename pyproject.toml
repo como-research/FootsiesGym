@@ -51,6 +51,11 @@ training = [
     "wandb>=0.15.0",
     "torch>=2.0.0",
 ]
+jax-training = [
+    "footsies-gym[jax]",
+    "flax>=0.10",
+    "optax>=0.2",
+]
 dev = [
     "pre-commit",
     "pytest",
@@ -59,7 +64,7 @@ dev = [
     "flake8",
 ]
 all = [
-    "footsies-gym[jax,rllib,training,dev]"
+    "footsies-gym[jax,rllib,training,dev,jax-training]"
 ]
 
 [project.urls]

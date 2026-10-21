@@ -10,25 +10,25 @@
   <img src="assets/footsies_trim.gif" alt="Footsies gameplay" />
 </p>
 
-A two-player zero-sum reinforcement learning benchmark built on HiFight's [Footsies](https://hifight.github.io/footsies/) fighting game. See the paper: [FootsiesGym: A Fighting Game Benchmark for Two-Player Zero-Sum Imperfect-Information Games](https://arxiv.org/abs/2607.06514).
+FootsiesGym is a two-player zero-sum reinforcement learning benchmark. It uses the [Footsies](https://hifight.github.io/footsies/) fighting game by HiFight. For more data, refer to the paper: [FootsiesGym: A Fighting Game Benchmark for Two-Player Zero-Sum Imperfect-Information Games](https://arxiv.org/abs/2607.06514).
 
-The environment is a PettingZoo `ParallelEnv` that runs the game in one of two backends:
+The environment is a PettingZoo `ParallelEnv`. It can run the game with one of two backends:
 
-- **Unity** (default): the original game, driven over gRPC. Binaries download automatically.
-- **C/CUDA**: a bit-identical port of the game in C that runs in-process on the CPU (SIMD + OpenMP) or a GPU, at millions to over a hundred million steps per second.
+- **Unity** (default): the original game. The environment controls it through gRPC. FootsiesGym downloads the game binaries automatically.
+- **C/CUDA**: a port of the game in C. Its results are bit-identical to the Unity game. It runs in the Python process, on the CPU or on an NVIDIA GPU.
 
 ## Installation
 
-FootsiesGym requires Python 3.12 or newer.
+FootsiesGym needs Python 3.12 or newer.
 
 ```bash
 pip install footsies-gym           # or: uv add footsies-gym
 pip install "footsies-gym[jax]"    # with JAX
 ```
 
-`tensor_type="torch"` or `"jax"` needs PyTorch or JAX installed; FootsiesGym itself doesn't depend on either.
+FootsiesGym does not need PyTorch or JAX. Install PyTorch to use `tensor_type="torch"`. Install JAX to use `tensor_type="jax"` or `functional=True`.
 
-From source:
+To install from the source code:
 
 ```bash
 git clone https://github.com/como-research/FootsiesGym.git
@@ -41,7 +41,7 @@ uv sync --all-extras               # or: pip install -e ".[all]"
 ```python
 import footsiesgym
 
-env = footsiesgym.make()           # downloads and launches the game server
+env = footsiesgym.make()           # downloads and starts the game server
 
 obs, infos = env.reset()
 while True:
@@ -51,13 +51,13 @@ while True:
         obs, infos = env.reset()
 ```
 
-With `num_envs > 1` the games are stepped together, and every value becomes an array with a leading `num_envs` axis. Finished games reset automatically inside `step()`:
+With `num_envs > 1`, the environment runs many games at the same time. Each value is then an array, and its first axis has the length `num_envs`. When a game ends, `step()` starts a new game in its position:
 
 ```python
 env = footsiesgym.make(num_envs=64)
 ```
 
-The C backend runs the same game in-process, with no binaries, on the CPU or a CUDA GPU (see [C/CUDA Backend](#ccuda-backend)). `tensor_type` picks the arrays every backend returns:
+The C backend runs the same game without binaries, on the CPU or on a CUDA GPU (refer to [C/CUDA Backend](#ccuda-backend)). The `tensor_type` setting selects the type of arrays that all backends return:
 
 ```python
 env = footsiesgym.make(backend="c", num_envs=65536, device="cuda", tensor_type="torch")
@@ -65,7 +65,7 @@ obs, infos = env.reset()                   # obs["p1"]: torch.float32 (65536, 88
 obs, rewards, terminateds, truncateds, infos = env.step({"p1": a1, "p2": a2})
 ```
 
-For JAX, `functional=True` returns the env as pure functions of an explicit state, so the whole rollout compiles into one jitted program (it runs on JAX's default device; see [Jitted JAX training loops](#jitted-jax-training-loops)):
+For JAX, use `functional=True`. Then `make()` returns the environment as pure functions of an explicit state. JAX can compile all of the rollout into one jitted program. The program runs on the default JAX device. For more data, refer to [Jitted JAX training loops](#jitted-jax-training-loops).
 
 ```python
 import jax
@@ -98,40 +98,42 @@ rewards = rollout(jax.random.key(0))
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/architecture-dark.svg">
-    <img alt="FootsiesGym architecture: a policy exchanges actions and observations with FootsiesEnv, which drives the Unity game server over gRPC. On first use, BinaryManager downloads, verifies, and launches the server automatically." src="assets/architecture-light.svg">
+    <img alt="FootsiesGym architecture: a policy sends actions to FootsiesEnv and gets observations. FootsiesEnv controls the Unity game server through gRPC. On first use, BinaryManager downloads, verifies and starts the server automatically." src="assets/architecture-light.svg">
   </picture>
 </p>
 
-Solid arrows are the per-step data flow; dotted arrows run once, on first use. Each `step()` advances the game `frame_skip` frames. With `num_envs > 1`, all games are stepped in one batched RPC.
+The solid arrows show the data flow at each step. The dotted arrows occur one time only, on first use. Each `step()` moves the game forward by `frame_skip` frames. With `num_envs > 1`, one batched gRPC call moves all of the games forward.
 
 ## Configuration
 
-Every option is a config key. Pass them as `footsiesgym.make(config={...})`, as keyword arguments (`make(num_envs=64)`), or both: the two are merged, and setting a key both ways to different values is an error.
+Each option is a config key. You can give the options in a config dictionary, as keyword arguments, or both. For example, use `footsiesgym.make(config={...})` or `footsiesgym.make(num_envs=64)`. FootsiesGym merges the two. If you set one key to two different values, FootsiesGym shows an error.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `backend` | `"grpc"` | `"grpc"` (the Unity game server) or `"c"` (the [C port](#ccuda-backend), in-process) |
-| `num_envs` | `1` | Number of games stepped together (vectorized mode when > 1) |
-| `tensor_type` | `"numpy"` | Arrays returned: `"numpy"`, `"torch"` or `"jax"` (actions may be any of the three) |
-| `device` | `"cpu"` | `"cpu"`, `"cuda"` or `"cuda:N"` (`backend="c"`) |
-| `num_threads` | all cores | CPU threads for `backend="c"` on the CPU (one per physical core is fastest) |
-| `max_t` | `4000` | Steps per episode before truncation |
-| `frame_skip` | `4` | Game frames per step |
-| `action_delay` | `8` | Frames before a selected action executes (multiple of `frame_skip`) |
-| `use_special_charge_action` | `False` | Add the special-charge toggle actions (6-8) |
-| `win_reward_scaling_coeff` | `1.0` | Win/loss reward magnitude |
-| `guard_break_reward` | `0.0` | Reward per guard break |
-| `use_reward_budget` | `False` | Deduct guard-break rewards from the win reward |
-| `return_fight_state_in_infos` | `False` | Add fight-state details to `infos` (single-env mode) |
-| `headless` | `True` | Run the Unity server headless or windowed |
-| `port`, `host` | auto, `"localhost"` | gRPC address of the Unity server |
+| `backend` | `"grpc"` | `"grpc"` (the Unity game server) or `"c"` (the [C port](#ccuda-backend), in the Python process) |
+| `num_envs` | `1` | Number of games that run at the same time (vectorized mode when the value is more than 1) |
+| `tensor_type` | `"numpy"` | Type of the returned arrays: `"numpy"`, `"torch"` or `"jax"`. Actions can be any of the three types. |
+| `device` | `"cpu"` | `"cpu"`, `"cuda"` or `"cuda:N"` (only for `backend="c"`) |
+| `num_threads` | all cores | Number of CPU threads for `backend="c"` on the CPU. One thread for each physical core gives the best speed. |
+| `max_t` | `4000` | Number of steps in an episode before truncation |
+| `frame_skip` | `4` | Number of game frames in each step |
+| `action_delay` | `8` | Number of frames before a selected action starts. The value must be a multiple of `frame_skip`. |
+| `use_special_charge_action` | `False` | Adds the special-charge toggle actions (6 to 8) |
+| `win_reward_scaling_coeff` | `1.0` | Size of the win and loss reward |
+| `guard_break_reward` | `0.0` | Reward for each guard break |
+| `use_reward_budget` | `False` | Subtracts guard-break rewards from the win reward |
+| `return_fight_state_in_infos` | `False` | Adds fight-state data to `infos` (single-game mode only) |
+| `headless` | `True` | Runs the Unity server headless or in a window |
+| `port`, `host` | automatic, `"localhost"` | gRPC address of the Unity server |
 | `platform` | `"linux"` | `"linux"` or `"mac"` (Unity server) |
-| `launch_binaries` | `True` | Start the Unity server automatically |
-| `functional` | `False` | Return pure JAX `reset`/`step` functions for jitted loops (`backend="c"`, [below](#jitted-jax-training-loops)) |
+| `launch_binaries` | `True` | Starts the Unity server automatically |
+| `functional` | `False` | Returns pure JAX `reset` and `step` functions for jitted loops (`backend="c"`, refer to [Jitted JAX training loops](#jitted-jax-training-loops)) |
 
 ### Framework classes
 
-Frameworks that build the env themselves take a class, not an env. `footsiesgym.make_class(...)` takes the same settings as `make()` and returns a class whose instances are what `make()` returns; the framework's own config is merged in when it builds one (setting a key twice to different values is an error). `functional` chooses the kind of class, and every class has `possible_agents` (`["p1", "p2"]`) as a class attribute:
+Some frameworks make the environment themselves. These frameworks need a class, not an environment object. `footsiesgym.make_class(...)` accepts the same settings as `make()`. It returns a class, and each instance of the class is the object that `make()` returns. When the framework makes an instance, FootsiesGym merges the framework configuration with the settings of the class. If one key has two different values, FootsiesGym shows an error.
+
+The `functional` setting selects the type of class. Each class has the class attribute `possible_agents` (`["p1", "p2"]`).
 
 ```python
 Cls = footsiesgym.make_class(backend="c", num_envs=64)            # FootsiesEnv subclass: Cls(**more_settings)
@@ -140,7 +142,7 @@ FootsiesEnv = footsiesgym.make_class(backend="c", functional=True)  # Sardine: C
 Experiment().environment(env=FootsiesEnv, env_config={"max_t": 4000}, num_envs=4096)
 ```
 
-`FootsiesEnv` follows the PettingZoo `ParallelEnv` API. RLlib takes its own `MultiAgentEnv`, which mirrors that API; `footsiesgym.wrappers.wrap_rllib` adapts the env, single or vectorized (`num_envs > 1` gives agents `p1_i` / `p2_i`), numpy on the CPU:
+`FootsiesEnv` uses the PettingZoo `ParallelEnv` API. RLlib uses its own `MultiAgentEnv` class, which has an API that is almost the same. Use `footsiesgym.wrappers.wrap_rllib` to make the environment usable in RLlib. The wrapper accepts a single-game environment or a vectorized environment. For a vectorized environment, the agents of game `i` are `p1_i` and `p2_i`. The wrapper needs `tensor_type="numpy"` on the CPU.
 
 ```python
 from ray import tune
@@ -152,7 +154,7 @@ config.environment("footsies", env_config={"backend": "c", "num_envs": 64})
 
 ## Actions
 
-Each agent picks from `Discrete(6)`, or `Discrete(9)` with `use_special_charge_action=True`:
+Each agent selects one action from `Discrete(6)`. With `use_special_charge_action=True`, the agent selects one action from `Discrete(9)`.
 
 | ID | Action | ID | Action |
 |----|--------|----|--------|
@@ -162,55 +164,59 @@ Each agent picks from `Discrete(6)`, or `Discrete(9)` with `use_special_charge_a
 | 3 | `ATTACK` | 8 | `BACK_SPECIAL_CHARGE` |
 | 4 | `BACK_ATTACK` | | |
 
-- **Special charge.** A special attack requires holding attack for 60 frames (15 steps at `frame_skip=4`). The `SPECIAL_CHARGE` actions toggle a held attack button: while it's held, movement actions become their attack variants (`FORWARD` → `FORWARD_ATTACK`). Toggling again releases the attack.
-- **Action delay.** Actions execute `action_delay // frame_skip` steps after they are selected, which simulates reaction time.
+- **Special charge.** For a special attack, the agent must hold the attack button for 60 frames. At `frame_skip=4`, this is 15 steps. A `SPECIAL_CHARGE` action holds the attack button. While the button is held, the movement actions change to their attack versions (`FORWARD` changes to `FORWARD_ATTACK`). A second `SPECIAL_CHARGE` action releases the button.
+- **Action delay.** An action starts `action_delay // frame_skip` steps after the agent selects it. This delay simulates reaction time.
 
 ## Observations
 
-Each agent gets a `Box` of shape `(88,)`:
+Each agent gets a `Box` with the shape `(88,)`:
 
 | Part | Size | Contents |
 |------|------|----------|
 | Common | 1 | Distance between the players |
-| Self | 50 | 37 public features (position, velocity, health, guard, action state) and 13 privileged ones: dash readiness (2), special-attack progress (1), previous action (9), charge state (1) |
+| Self | 50 | 37 public features (position, velocity, health, guard, action state) and 13 private features: dash readiness (2), special-attack progress (1), previous action (9), charge state (1) |
 | Opponent | 37 | Public features only |
 
 ## Rewards
 
-Rewards are zero-sum (`rewards["p1"] + rewards["p2"] == 0`):
+The rewards are zero-sum (`rewards["p1"] + rewards["p2"] == 0`):
 
 | Event | Reward |
 |-------|--------|
-| Opponent dies | `± win_reward_scaling_coeff` |
-| Opponent's guard breaks | `± guard_break_reward` (at most 3 times per episode) |
+| The opponent dies | `± win_reward_scaling_coeff` |
+| The guard of the opponent breaks | `± guard_break_reward` (a maximum of 3 times in each episode) |
 
-With `use_reward_budget=True`, guard-break rewards are deducted from the win reward, so an episode's total reward never exceeds `win_reward_scaling_coeff`.
+With `use_reward_budget=True`, FootsiesGym subtracts the guard-break rewards from the win reward. Thus, the total reward of an episode is never more than `win_reward_scaling_coeff`.
 
 ## C/CUDA Backend
 
-`backend="c"` runs a port of the game's simulation (Unity's `BattleSimulation` and `Fighter`, with frame data extracted from the Unity assets) and of the environment, as plain C functions ([`csrc/`](csrc/)) that compile for the CPU (SIMD + OpenMP) and CUDA. Its observations, rewards and done flags are bit-identical to the Unity game's, so a policy trained on it plays the same in the real game. The library is compiled on first use, so it needs a C compiler (and `nvcc` for the GPU, found from `$CUDA_HOME`, `PATH` or `/usr/local/cuda`).
+`backend="c"` runs a port of the game in C, in the Python process. It runs on the CPU or on a CUDA GPU. Its observations, rewards and done flags are bit-identical to the Unity game. Thus, a policy that you train with the C backend plays the same in the real game.
+
+The C backend does not need the game server. It needs a C compiler, because FootsiesGym compiles the library on first use. For the GPU, it also needs `nvcc`. FootsiesGym finds `nvcc` through `$CUDA_HOME`, `PATH` or `/usr/local/cuda`.
 
 ```python
 # CPU, numpy
 env = footsiesgym.make(backend="c", num_envs=16384, num_threads=24)
 
-# GPU, PyTorch: observations and rewards never leave the GPU
+# GPU, PyTorch: the observations and rewards stay on the GPU
 env = footsiesgym.make(backend="c", num_envs=65536, device="cuda", tensor_type="torch")
 obs, infos = env.reset()
 actions = {"p1": policy(obs["p1"]), "p2": opponent(obs["p2"])}   # torch tensors on cuda:0
 obs, rewards, terminateds, truncateds, infos = env.step(actions)
 ```
 
-- The API is the same as the Unity backend's: the single-game PettingZoo env with `num_envs=1`, and arrays with a leading `num_envs` axis otherwise. Finished games reset inside `step`: the returned obs come from a fresh game, and the rewards and done flags from the episode that ended.
-- `step` returns new arrays every time, so they can be kept across steps. On the GPU, torch outputs are device-to-device copies, JAX outputs are the step's own (it runs as an XLA call), and `tensor_type="numpy"` copies them to the host. Actions already on the GPU (torch, JAX, CuPy) are read in place.
-- Rewards are float32 (the float64 value rounded once).
-- Parity with the Unity binary is tested frame by frame (`testing/test_c_backend.py`; the live-server tests are marked `slow`). For a larger check, run `python -m footsiesgym.c.validation unity`. Unlike a fresh reset, Unity's vectorized server keeps a few fighter fields (hit stun, frame advantage, proximity-guard flags) from the previous episode when it resets a game.
-- Unity's Mono runtime does float math in double precision; the port reproduces it exactly. The compiler flags are part of that guarantee: see [`csrc/README.md`](csrc/README.md).
-- After changing the Unity assets, regenerate the frame data with `python scripts/extract_unity_frame_data.py <path-to-FootsiesV2>`, then `python scripts/gen_c_frame_data.py`.
+- The API is the same as the API of the Unity backend. With `num_envs=1`, the environment is a single-game PettingZoo environment. With more games, each value is an array, and its first axis has the length `num_envs`.
+- When a game ends, `step` starts a new game in its position. The returned observations come from the new game. The rewards and done flags come from the episode that ended.
+- Each `step` returns new arrays. Thus, you can keep the arrays from one step after the next step.
+- The actions can be numpy, torch or JAX arrays. If the actions are on the GPU of the environment, they stay on the GPU.
+- The rewards are float32 values.
+- On the CPU, one thread for each physical core gives the best speed. Set this number with `num_threads`.
+
+For the design of the C backend and its tests, refer to [`footsiesgym/c/README.md`](footsiesgym/c/README.md).
 
 ### Jitted JAX training loops
 
-With `tensor_type="jax"`, each step runs the C/CUDA step as an XLA custom call (FFI). To compile the whole rollout into one jitted program (Sardine's Anakin setup), pass `functional=True`: `make()` then returns the same step as pure functions of an explicit state, which run on JAX's device (`jax.default_device`, or the jit's):
+Sardine's Anakin setup compiles all of the rollout into one jitted program. For this setup, use `functional=True`. Then `make()` returns the environment step as pure functions of an explicit state. The functions run on the JAX device: `jax.default_device`, or the device of the jitted function.
 
 ```python
 f = footsiesgym.make(backend="c", num_envs=4096, functional=True)   # Sardine's functional API
@@ -225,7 +231,9 @@ def rollout(key):
     return jax.lax.scan(body, state, jax.random.split(key, 128))
 ```
 
-`step` resets finished games (`step_env` doesn't), and `state.t` / `state.episode_id` read as `(num_envs,)` arrays. Sardine builds the env itself from a class (`Cls(**env_config).vectorize(num_envs)`); `make_class` returns one (see [Framework classes](#framework-classes)):
+`step` starts new games when games end. `step_env` does not start new games. `state.t` and `state.episode_id` are arrays with the shape `(num_envs,)`.
+
+Sardine makes the environment from a class (`Cls(**env_config).vectorize(num_envs)`). `make_class` returns this class (refer to [Framework classes](#framework-classes)):
 
 ```python
 from sardine.experiment import Experiment
@@ -234,47 +242,37 @@ FootsiesEnv = footsiesgym.make_class(backend="c", functional=True, frame_skip=4)
 Experiment().environment(env=FootsiesEnv, env_config={"max_t": 4000}, num_envs=4096)
 ```
 
-The JAX port that preceded the C backend is archived on the `archive/jax-replica` branch.
-
 ## Game Server
 
-Binaries are hosted on a CDN (`footsiesgym.chasemcd.com`) with [GitHub Releases](https://github.com/como-research/FootsiesGym/releases) as a fallback. They are downloaded on first use, verified with SHA256 checksums and cached, so you need to be online the first time you run.
-
-The server runs on Linux and macOS; Windows is not supported. On macOS it is re-signed automatically and runs under Rosetta, because Grpc.Core is x86_64-only.
-
-To run the server yourself, download a build from the CDN or the [`binaries-v1` release](https://github.com/como-research/FootsiesGym/releases/tag/binaries-v1), start it, and point the environment at its port:
-
-```bash
-curl -LO https://footsiesgym.chasemcd.com/v0.7.0/footsies_mac_headless_bbdb506.zip
-unzip footsies_mac_headless_bbdb506.zip
-codesign --force --deep --sign - footsies_mac_headless_bbdb506/FOOTSIES   # macOS, if it refuses to start
-arch -x86_64 footsies_mac_headless_bbdb506/FOOTSIES --port 50051 -batchmode --grpc
-```
-
-```python
-env = footsiesgym.make(config={"port": 50051}, launch_binaries=False)
-```
+The Unity backend downloads, verifies and starts the game server automatically. To start a server manually, or for the supported platforms and the download locations, refer to [`binaries/README.md`](binaries/README.md).
 
 ## Training
 
 > [!NOTE]
-> The code for the paper's experiments is coming soon. Those experiments were not run with the examples below.
+> The code for the experiments of the paper is not available yet. The examples that follow are not the code for those experiments.
 
-- **RLlib** ([APPO](https://docs.ray.io/en/latest/rllib/rllib-algorithms.html#appo)), with the RLModule stack (recommended) or the legacy ModelV2 stack:
+- **RLlib** ([APPO](https://docs.ray.io/en/latest/rllib/rllib-algorithms.html#appo)). You can use the RLModule stack (recommended) or the legacy ModelV2 stack:
 
   ```bash
   python -m experimentation.experiments.rllib.train_rlmodule --experiment-name <name> [--debug]
   python -m experimentation.experiments.rllib.train --experiment-name <name>
   ```
 
-- **CleanRL**: a self-contained [PPO example](experimentation/experiments/cleanrl/).
+- **CleanRL** ([PPO examples](experimentation/experiments/cleanrl/), each in one file):
+  - JAX on the C/CUDA environment. All of the training runs on the GPU. A second script plays the trained policy in the Unity game and compares Unity with the C environment.
+  - PyTorch on the Unity game server.
+
+  ```bash
+  python -m experimentation.experiments.cleanrl.train_ppo_jax
+  python -m experimentation.experiments.cleanrl.play_unity --policy runs/ppo_jax/policy.msgpack
+  ```
 
 ## Throughput
 
 <table align="center">
   <tr>
-    <td align="center" width="50%"><img src="assets/throughput_scaling_linux.png" alt="Throughput scaling on Linux: environment steps per second vs. number of parallel environments, for 1-4 game-server processes. Peaks near 50,000 steps per second."></td>
-    <td align="center" width="50%"><img src="assets/throughput_scaling_mac.png" alt="Throughput scaling on macOS: environment steps per second vs. number of parallel environments, for 1-4 game-server processes. Peaks above 70,000 steps per second."></td>
+    <td align="center" width="50%"><img src="assets/throughput_scaling_linux.png" alt="Throughput on Linux: environment steps per second for each number of parallel environments, with 1 to 4 game-server processes. The maximum is approximately 50,000 steps per second."></td>
+    <td align="center" width="50%"><img src="assets/throughput_scaling_mac.png" alt="Throughput on macOS: environment steps per second for each number of parallel environments, with 1 to 4 game-server processes. The maximum is more than 70,000 steps per second."></td>
   </tr>
   <tr>
     <td align="center"><b>Linux</b></td>
@@ -282,13 +280,21 @@ env = footsiesgym.make(config={"port": 50051}, launch_binaries=False)
   </tr>
 </table>
 
-Unity backend: environment steps per second against `num_envs`, with $P$ game-server processes running in parallel. The C backend reaches about 165M steps per second with 1M games on one RTX 3090, and about 43M on the 24 cores of a Threadripper 3960X. See [`benchmarking/`](benchmarking/) to reproduce both.
+The figures show the Unity backend: environment steps per second for each value of `num_envs`, with $P$ game-server processes in parallel.
+
+<p align="center">
+  <img src="assets/throughput_c.png" width="60%" alt="Throughput of the C backend: environment steps per second for each number of parallel environments. On one RTX 3090, jitted JAX gives a maximum of approximately 150 million steps per second and PyTorch approximately 120 million. On 24 CPU threads, the maximum is approximately 33 million. The Unity server with 4 processes gives a maximum of approximately 50 thousand.">
+</p>
+
+The second figure shows the C backend on one RTX 3090 and on the 24 cores of a Threadripper 3960X. On the GPU, jitted JAX gives approximately 154M steps per second with 1M games. PyTorch gives approximately 118M. On the CPU, the C backend gives approximately 33M steps per second with 16K to 64K games. With more games, the data does not fit in the CPU cache, and the speed decreases. The dashed line is the best Unity configuration.
+
+To get these results again, refer to [`benchmarking/`](benchmarking/).
 
 ## Development
 
 ```bash
 uv sync --all-extras
-uv run pytest                # add -m "not slow" to skip tests that launch the game server
+uv run pytest                # add -m "not slow" to skip the tests that start the game server
 uv build
 ```
 

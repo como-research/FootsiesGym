@@ -1,62 +1,74 @@
-# Game Binaries
+# Game Server
 
-Game server binaries are **downloaded automatically** on first use — no manual
-setup is required. `footsiesgym` fetches the platform-appropriate zip from the
-CDN (with a GitHub Releases fallback), verifies its SHA256 checksum, caches it
-under `footsiesgym/binaries/`, and extracts it into this directory.
+The Unity backend uses the original Footsies game as a game server. The environment controls the server through gRPC.
 
-The notes below are only needed if you want to launch game servers manually
-(e.g., on macOS, where auto-launch is not supported, or to run a windowed
-build).
+## Automatic download and start
 
-## Linux
+You do not have to install the game server. On first use, FootsiesGym does these steps automatically:
 
-Zips are cached in `footsiesgym/binaries/` after the first run (or download
-them from the URLs in `footsiesgym/binary_manager.py`). Unpack the one you
-want and launch:
+1. It downloads the zip file for your platform.
+2. It verifies the SHA256 checksum of the zip file.
+3. It extracts the zip file into `footsiesgym/binaries/footsies_binaries_headless/` or `footsiesgym/binaries/footsies_binaries_windowed/`.
+4. It starts the server and waits until the server accepts connections.
 
-```bash
-unzip footsiesgym/binaries/footsies_linux_headless_9c6b36f.zip -d binaries/
-chmod +x binaries/footsies_linux_headless_9c6b36f/footsies.x86_64
-./binaries/footsies_linux_headless_9c6b36f/footsies.x86_64 --port <YOUR_DESIRED_PORT>
-```
+The first run needs an internet connection. Later runs use the files in `footsiesgym/binaries/`.
 
-For a full experiment, launch a fleet of training and evaluation servers:
+The primary download location is a CDN (`footsiesgym.chasemcd.com`). If the CDN is not available, FootsiesGym uses the [`binaries-v1` GitHub release](https://github.com/como-research/FootsiesGym/releases/tag/binaries-v1).
 
-```bash
-./scripts/start_local_linux_servers.sh <NUM_TRAINING_SERVERS> <NUM_EVAL_SERVERS>
-```
+## Platforms
 
-When done, run `./scripts/kill_local_linux_servers.sh` to clean up all running
-processes.
+| Platform | Server | Notes |
+|----------|--------|-------|
+| Linux (x86_64) | `footsies.x86_64` | Headless and windowed builds |
+| macOS | `FOOTSIES` | Runs under Rosetta. Grpc.Core is available only for x86_64. FootsiesGym signs the binary again automatically. |
+| Windows | — | Not supported |
 
-## macOS
+The C backend (`backend="c"`) does not use the game server.
 
-The mac binaries download, extract, and launch automatically, the same as on
-Linux. For manual launching, get them from the CDN or the
-[`binaries-v1` GitHub release](https://github.com/como-research/FootsiesGym/releases/tag/binaries-v1):
+## Start a server manually
 
-```bash
-curl -LO https://footsiesgym.chasemcd.com/v0.7.0/footsies_mac_headless_bbdb506.zip
-# or: gh release download binaries-v1 --repo como-research/FootsiesGym --pattern "footsies_mac_*"
-```
+Start a server manually to use a server on a different computer, or to look at the game in a window.
 
-Tested on Apple Silicon (M3). gRPC (specifically Grpc.Core) is not compatible
-with Apple Silicon natively, so the builds run under Rosetta:
+1. Download the zip file for your platform from the CDN or from the [`binaries-v1` release](https://github.com/como-research/FootsiesGym/releases/tag/binaries-v1):
 
-```bash
-# Windowed build
-arch -x86_64 footsies_mac_windowed_bbdb506.app/Contents/MacOS/FOOTSIES --port <YOUR_DESIRED_PORT>
+   ```bash
+   curl -LO https://footsiesgym.chasemcd.com/v0.7.0/footsies_linux_headless_9c6b36f.zip
+   # macOS: footsies_mac_headless_bbdb506.zip or footsies_mac_windowed_bbdb506.zip
+   # Linux, windowed: footsies_linux_windowed_9c6b36f.zip
+   ```
 
-# Headless server
-arch -x86_64 footsies_mac_headless_bbdb506/FOOTSIES --port <YOUR_DESIRED_PORT>
-```
+2. Extract the zip file:
 
-Ports default to 50051.
+   ```bash
+   unzip footsies_linux_headless_9c6b36f.zip
+   ```
 
-If macOS reports "This will damage your computer" (typically for the headless
-build), re-sign the binary:
+3. Start the server. Give `-batchmode` only to a headless build. With a windowed build, `-batchmode` stops the rendering, and the window stays black.
 
-```bash
-codesign --force --deep --sign - footsies_mac_headless_bbdb506/FOOTSIES
-```
+   ```bash
+   # Linux, headless
+   ./footsies_linux_headless_9c6b36f/footsies.x86_64 -batchmode --grpc --port 50051
+
+   # Linux, windowed
+   ./footsies_linux_windowed_9c6b36f/footsies.x86_64 --grpc --port 50051
+
+   # macOS, headless
+   arch -x86_64 footsies_mac_headless_bbdb506/FOOTSIES -batchmode --grpc --port 50051
+
+   # macOS, windowed
+   arch -x86_64 footsies_mac_windowed_bbdb506.app/Contents/MacOS/FOOTSIES --grpc --port 50051
+   ```
+
+4. If macOS does not start the binary (for example, the message "This will damage your computer"), sign the binary again. Then do step 3 again.
+
+   ```bash
+   codesign --force --deep --sign - footsies_mac_headless_bbdb506/FOOTSIES
+   ```
+
+5. Connect the environment to the port of the server. Set `launch_binaries=False`, because the server is already started:
+
+   ```python
+   env = footsiesgym.make(port=50051, launch_binaries=False)
+   ```
+
+   For a server on a different computer, also set `host`.

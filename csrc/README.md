@@ -20,7 +20,7 @@ csrc/
 ```
 
 Python bindings live in `footsiesgym/c`, which compiles these on first use
-(cached in `~/.cache/footsiesgym`). Users get them through
+(cached in `~/.cache/footsiesgym`; see [`footsiesgym/c/README.md`](../footsiesgym/c/README.md)). Users get them through
 `footsiesgym.make(backend="c", device=..., tensor_type=...)`:
 
 ```python
