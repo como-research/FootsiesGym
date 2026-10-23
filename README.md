@@ -19,22 +19,55 @@ The environment is a PettingZoo `ParallelEnv`. It can run the game with one of t
 
 ## Installation
 
-FootsiesGym needs Python 3.12 or newer.
+FootsiesGym needs Python 3.12 or newer. These steps use [uv](https://docs.astral.sh/uv/). uv installs the correct Python version and all of the dependencies.
+
+### Use FootsiesGym in your project
 
 ```bash
-pip install footsies-gym           # or: uv add footsies-gym
-pip install "footsies-gym[jax]"    # with JAX
+uv add footsies-gym                     # the Unity and C backends, numpy
+uv add "footsies-gym[cuda]"             # also JAX on NVIDIA GPUs
 ```
 
-FootsiesGym does not need PyTorch or JAX. Install PyTorch to use `tensor_type="torch"`. Install JAX to use `tensor_type="jax"` or `functional=True`.
+### Run the examples, tests and benchmarks of this repository
 
-To install from the source code:
+1. Install uv:
 
-```bash
-git clone https://github.com/como-research/FootsiesGym.git
-cd FootsiesGym
-uv sync --all-extras               # or: pip install -e ".[all]"
-```
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+2. Get the source code:
+
+   ```bash
+   git clone https://github.com/como-research/FootsiesGym.git
+   cd FootsiesGym
+   ```
+
+3. Install FootsiesGym and the extras that you need (refer to the table below). For example, for the JAX training example on a GPU:
+
+   ```bash
+   uv sync --extra cuda --extra jax-training --extra dev
+   ```
+
+   To install all of the extras, use `uv sync --all-extras`.
+
+4. Run all commands with `uv run`. uv uses the environment of the project (`.venv`):
+
+   ```bash
+   uv run python -c "import footsiesgym; print(footsiesgym.make(backend='c').reset()[0]['p1'].shape)"
+   ```
+
+| Extra | Contents | Necessary for |
+|-------|----------|---------------|
+| (none) | numpy, gRPC, PettingZoo | The Unity backend, the C backend on the CPU, `tensor_type="numpy"` |
+| `jax` | JAX (CPU) | `tensor_type="jax"`, `functional=True` |
+| `cuda` | JAX with CUDA (Linux) | JAX on an NVIDIA GPU |
+| `jax-training` | `jax`, Flax, Optax | The JAX training example |
+| `training` | PyTorch, Weights & Biases | `tensor_type="torch"`, the PyTorch training example |
+| `rllib` | Ray RLlib, PyTorch | The RLlib examples, `wrap_rllib` |
+| `dev` | pytest, black, isort, matplotlib, pandas | The tests, the benchmark figures |
+
+The C backend compiles its library on first use. Thus, it needs a C compiler (`gcc` or `clang`). For `device="cuda"`, it also needs the NVIDIA driver and `nvcc` from the CUDA toolkit. FootsiesGym finds `nvcc` through `$CUDA_HOME`, `PATH` or `/usr/local/cuda`.
 
 ## Quick Start
 
@@ -251,20 +284,22 @@ The Unity backend downloads, verifies and starts the game server automatically. 
 > [!NOTE]
 > The code for the experiments of the paper is not available yet. The examples that follow are not the code for those experiments.
 
-- **RLlib** ([APPO](https://docs.ray.io/en/latest/rllib/rllib-algorithms.html#appo)). You can use the RLModule stack (recommended) or the legacy ModelV2 stack:
-
-  ```bash
-  python -m experimentation.experiments.rllib.train_rlmodule --experiment-name <name> [--debug]
-  python -m experimentation.experiments.rllib.train --experiment-name <name>
-  ```
-
 - **CleanRL** ([PPO examples](experimentation/experiments/cleanrl/), each in one file):
   - JAX on the C/CUDA environment. All of the training runs on the GPU. A second script plays the trained policy in the Unity game and compares Unity with the C environment.
   - PyTorch on the Unity game server.
 
   ```bash
-  python -m experimentation.experiments.cleanrl.train_ppo_jax
-  python -m experimentation.experiments.cleanrl.play_unity --policy runs/ppo_jax/policy.msgpack
+  uv sync --extra cuda --extra jax-training
+  uv run python -m experimentation.experiments.cleanrl.train_ppo_jax
+  uv run python -m experimentation.experiments.cleanrl.play_unity --policy runs/ppo_jax/policy.msgpack
+  ```
+
+- **RLlib** ([APPO](https://docs.ray.io/en/latest/rllib/rllib-algorithms.html#appo)). You can use the RLModule stack (recommended) or the legacy ModelV2 stack:
+
+  ```bash
+  uv sync --extra rllib --extra training
+  uv run python -m experimentation.experiments.rllib.train_rlmodule --experiment-name <name> [--debug]
+  uv run python -m experimentation.experiments.rllib.train --experiment-name <name>
   ```
 
 ## Throughput
@@ -288,15 +323,18 @@ The figures show the Unity backend: environment steps per second for each value 
 
 The second figure shows the C backend on one RTX 3090 and on the 24 cores of a Threadripper 3960X. On the GPU, jitted JAX gives approximately 154M steps per second with 1M games. PyTorch gives approximately 118M. On the CPU, the C backend gives approximately 33M steps per second with 16K to 64K games. With more games, the data does not fit in the CPU cache, and the speed decreases. The dashed line is the best Unity configuration.
 
-To get these results again, refer to [`benchmarking/`](benchmarking/).
+To get these results again, refer to [`benchmarking/`](benchmarking/). The benchmarks need the `dev` extra.
 
 ## Development
 
 ```bash
 uv sync --all-extras
-uv run pytest                # add -m "not slow" to skip the tests that start the game server
-uv build
+uv run pytest -m "not slow"   # the fast tests
+uv run pytest                 # all tests: the slow tests start the Unity game server
+uv build                      # the wheel and the source distribution
 ```
+
+If an extra or a GPU is not available, pytest skips the tests that need it. For the tests of the C backend, refer to [`footsiesgym/c/README.md`](footsiesgym/c/README.md#tests).
 
 ## Citation
 

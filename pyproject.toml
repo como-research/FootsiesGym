@@ -43,6 +43,10 @@ dependencies = [
 jax = [
     "jax>=0.11.2",
 ]
+cuda = [
+    # JAX on NVIDIA GPUs (the C backend's CUDA build also needs nvcc)
+    "jax[cuda12]>=0.11.2; sys_platform == 'linux'",
+]
 rllib = [
     "ray[rllib]>=2.46.0",
     "torch>=2.0.0",
@@ -62,9 +66,11 @@ dev = [
     "black",
     "isort",
     "flake8",
+    "matplotlib",
+    "pandas",
 ]
 all = [
-    "footsies-gym[jax,rllib,training,dev,jax-training]"
+    "footsies-gym[jax,cuda,rllib,training,dev,jax-training]"
 ]
 
 [project.urls]
@@ -96,6 +102,7 @@ line_length = 88
 
 [tool.pytest.ini_options]
 testpaths = ["testing"]
+pythonpath = ["."]  # the tests import experimentation/ from the repo root
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"

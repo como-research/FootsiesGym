@@ -62,9 +62,9 @@ FootsiesGym compiles the libraries on first use and keeps them in `~/.cache/foot
 ## Tests
 
 ```bash
-pytest testing/test_c_backend.py                    # fast tests (CPU, and GPU if available)
-pytest testing/test_c_backend.py -m slow            # compare with a live Unity server
-FOOTSIES_LONG_TESTS=1 pytest testing/test_c_backend.py   # exhaustive tests (minutes)
+uv run pytest testing/test_c_backend.py                    # fast tests (CPU, and GPU if available)
+uv run pytest testing/test_c_backend.py -m slow            # compare with a live Unity server
+FOOTSIES_LONG_TESTS=1 uv run pytest testing/test_c_backend.py   # exhaustive tests (minutes)
 ```
 
 The GPU tests need a CUDA GPU and `nvcc`. The torch and JAX tests need torch and JAX. If they are not available, pytest skips these tests.
@@ -72,20 +72,20 @@ The GPU tests need a CUDA GPU and `nvcc`. The torch and JAX tests need torch and
 For a larger comparison with Unity:
 
 ```bash
-python -m footsiesgym.c.validation trace                                  # the recorded Unity trace
-python -m footsiesgym.c.validation unity --num-envs 256 --frames 20000    # a live Unity server
-python -m footsiesgym.c.validation unity --record testing/data/unity_trace.npz   # record a new trace
+uv run python -m footsiesgym.c.validation trace                                  # the recorded Unity trace
+uv run python -m footsiesgym.c.validation unity --num-envs 256 --frames 20000    # a live Unity server
+uv run python -m footsiesgym.c.validation unity --record testing/data/unity_trace.npz   # record a new trace
 ```
 
 ## Change the frame data
 
 If the Unity assets change, make the frame data again:
 
-1. Run `python scripts/extract_unity_frame_data.py <path-to-FootsiesV2>`. This step writes `footsiesgym/c/frame_data.json`.
-2. Run `python scripts/gen_c_frame_data.py`. This step writes `csrc/frame_data.gen.h`.
-3. Run `pytest testing/test_c_backend.py`.
+1. Run `uv run python scripts/extract_unity_frame_data.py <path-to-FootsiesV2>`. This step writes `footsiesgym/c/frame_data.json`.
+2. Run `uv run python scripts/gen_c_frame_data.py`. This step writes `csrc/frame_data.gen.h`.
+3. Run `uv run pytest testing/test_c_backend.py`.
 
-`python scripts/gen_c_frame_data.py --check` shows an error if `csrc/frame_data.gen.h` is not up to date.
+`uv run python scripts/gen_c_frame_data.py --check` shows an error if `csrc/frame_data.gen.h` is not up to date.
 
 ## History
 

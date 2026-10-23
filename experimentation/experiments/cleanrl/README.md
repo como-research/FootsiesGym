@@ -16,14 +16,15 @@ This directory has two PPO examples:
 1. Install the dependencies:
 
    ```bash
-   pip install -e ".[jax-training]"
-   pip install "jax[cuda12]"        # JAX with CUDA, for the GPU
+   uv sync --extra cuda --extra jax-training
    ```
+
+   The `cuda` extra installs JAX with CUDA. Without a GPU, use `uv sync --extra jax-training`.
 
 2. Train the policy:
 
    ```bash
-   python -m experimentation.experiments.cleanrl.train_ppo_jax
+   uv run python -m experimentation.experiments.cleanrl.train_ppo_jax
    ```
 
    The script saves the policy in `runs/ppo_jax/policy.msgpack` and its configuration in `runs/ppo_jax/policy.json`. Add `--track` to log to Weights & Biases. For all options, run the script with `--help`.
@@ -31,7 +32,7 @@ This directory has two PPO examples:
 3. Play the policy in the Unity game and compare with the C environment:
 
    ```bash
-   python -m experimentation.experiments.cleanrl.play_unity --policy runs/ppo_jax/policy.msgpack
+   uv run python -m experimentation.experiments.cleanrl.play_unity --policy runs/ppo_jax/policy.msgpack
    ```
 
    If Unity and C are not identical, the script stops and shows the first step and game that are different.
@@ -39,7 +40,7 @@ This directory has two PPO examples:
 4. To look at one game in the Unity window, add `--windowed`:
 
    ```bash
-   python -m experimentation.experiments.cleanrl.play_unity --policy runs/ppo_jax/policy.msgpack --windowed
+   uv run python -m experimentation.experiments.cleanrl.play_unity --policy runs/ppo_jax/policy.msgpack --windowed
    ```
 
 ### Results
@@ -57,7 +58,7 @@ Self-play PPO training using a single vectorized FootsiesEnv server. Both agents
 ### Setup
 
 ```bash
-pip install -e ".[all]"
+uv sync --extra training
 ```
 
 Requires `wandb` for logging and sweep orchestration. Log in first:
@@ -73,7 +74,7 @@ wandb login
 From the repo root:
 
 ```bash
-wandb sweep experimentation/experiments/cleanrl/ppo_sweep.yaml
+uv run wandb sweep experimentation/experiments/cleanrl/ppo_sweep.yaml
 ```
 
 This prints a sweep ID like `your-entity/Footsies-v0/abc123def`.
@@ -83,13 +84,13 @@ This prints a sweep ID like `your-entity/Footsies-v0/abc123def`.
 On each machine (or in each tmux pane) you want to run trials:
 
 ```bash
-wandb agent <sweep-id>
+uv run wandb agent <sweep-id>
 ```
 
 For example:
 
 ```bash
-wandb agent your-entity/Footsies-v0/abc123def
+uv run wandb agent your-entity/Footsies-v0/abc123def
 ```
 
 Each agent pulls hyperparameter configurations from the sweep controller and runs `train_ppo.py` with those values injected via `wandb.config`. You can launch multiple agents in parallel across machines to run trials concurrently.
@@ -127,7 +128,7 @@ All other settings use the defaults in `train_ppo.py` (`DEFAULT_CONFIG`).
 To run a single training with default hyperparameters:
 
 ```bash
-python -m experimentation.experiments.cleanrl.train_ppo
+uv run python -m experimentation.experiments.cleanrl.train_ppo
 ```
 
 This still logs to wandb. Override defaults by editing `DEFAULT_CONFIG` in `train_ppo.py`.

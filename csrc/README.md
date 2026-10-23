@@ -138,17 +138,17 @@ episodes.
 Larger runs:
 
 ```bash
-python -m footsiesgym.c.validation trace
-python -m footsiesgym.c.validation unity --num-envs 256 --frames 20000
-pytest testing/test_c_backend.py -m slow          # needs the Unity binary
-FOOTSIES_LONG_TESTS=1 pytest testing/test_c_backend.py
+uv run python -m footsiesgym.c.validation trace
+uv run python -m footsiesgym.c.validation unity --num-envs 256 --frames 20000
+uv run pytest testing/test_c_backend.py -m slow          # needs the Unity binary
+FOOTSIES_LONG_TESTS=1 uv run pytest testing/test_c_backend.py
 ```
 
 ## Regenerating the frame data
 
 ```bash
-python scripts/gen_c_frame_data.py          # rewrite csrc/frame_data.gen.h
-python scripts/gen_c_frame_data.py --check  # fail if it is out of date
+uv run python scripts/gen_c_frame_data.py          # rewrite csrc/frame_data.gen.h
+uv run python scripts/gen_c_frame_data.py --check  # fail if it is out of date
 ```
 
 The generator expands its sparse ranges back into dense tables and checks

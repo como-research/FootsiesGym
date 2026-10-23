@@ -23,7 +23,7 @@ Use the `footsies-paper` conda env (`footsies-gym` already installed):
 
 ```bash
 conda activate footsies-paper
-pip install matplotlib pandas   # if not already present
+uv sync --extra dev   # matplotlib and pandas for the plots
 ```
 
 Run on Linux — `footsiesgym.make(..., launch_binaries=True)` is Linux-only,
@@ -33,16 +33,16 @@ which is what we want for the published throughput numbers anyway.
 
 ```bash
 # Single-env point (optional, anchors N=1 on the curve):
-python scripts/bench_throughput.py --num-envs 1 --label headless_singleenv
+uv run python benchmarking/bench_throughput.py --num-envs 1 --label headless_singleenv
 
 # Sweep N for the scaling curve:
-python scripts/bench_throughput.py \
+uv run python benchmarking/bench_throughput.py \
     --num-envs 2,4,16,64,256,1024 \
     --label vectorized_headless \
     --step-calls 200
 
 # Produce the figure:
-python scripts/plot_throughput.py
+uv run python benchmarking/plot_throughput.py
 ```
 
 Each invocation appends rows to `benchmarking/figures/data/throughput.csv`. Re-running
@@ -88,10 +88,10 @@ finished games reset inside `step`. Rows go to the same CSV with the label
 - `--backend cuda`: the CUDA kernel alone, through its C API.
 
 ```bash
-python benchmarking/bench_c_throughput.py --backend make --device cuda --tensor-type torch --num-envs 16384,262144
-python benchmarking/bench_c_throughput.py --backend cpu --threads 24 --num-envs 16384,65536
-python benchmarking/bench_c_throughput.py --backend ffi --num-envs 4096,65536,262144
-python benchmarking/bench_c_throughput.py --backend cuda --num-envs 65536,1048576
+uv run python benchmarking/bench_c_throughput.py --backend make --device cuda --tensor-type torch --num-envs 16384,262144
+uv run python benchmarking/bench_c_throughput.py --backend cpu --threads 24 --num-envs 16384,65536
+uv run python benchmarking/bench_c_throughput.py --backend ffi --num-envs 4096,65536,262144
+uv run python benchmarking/bench_c_throughput.py --backend cuda --num-envs 65536,1048576
 ```
 
 Measured with frame_skip=4, action_delay=0, on an RTX 3090 and a Threadripper
@@ -121,10 +121,10 @@ three benchmarks to that CSV, then the plot script:
 ```bash
 CSV=benchmarking/figures/data/throughput_c.csv
 N=1,16,256,1024,4096,16384,65536,262144,1048576
-python benchmarking/bench_c_throughput.py --backend ffi --num-envs $N --duration 5 --csv $CSV
-python benchmarking/bench_c_throughput.py --backend make --device cuda --tensor-type torch --num-envs $N --duration 5 --csv $CSV
-python benchmarking/bench_c_throughput.py --backend make --device cpu --threads 24 --num-envs 1,16,256,1024,4096,16384,65536,262144 --duration 5 --csv $CSV
-python benchmarking/plot_throughput.py
+uv run python benchmarking/bench_c_throughput.py --backend ffi --num-envs $N --duration 5 --csv $CSV
+uv run python benchmarking/bench_c_throughput.py --backend make --device cuda --tensor-type torch --num-envs $N --duration 5 --csv $CSV
+uv run python benchmarking/bench_c_throughput.py --backend make --device cpu --threads 24 --num-envs 1,16,256,1024,4096,16384,65536,262144 --duration 5 --csv $CSV
+uv run python benchmarking/plot_throughput.py
 ```
 
 The figure shows the Unity server with P=4 (from `figures/data/throughput.csv`)
