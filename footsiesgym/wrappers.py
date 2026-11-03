@@ -25,7 +25,7 @@ def wrap_rllib(env):
     except ImportError:
         raise ImportError(
             "ray[rllib] is required to use the RLlib wrapper. "
-            "Install it with: pip install 'footsies-gym[rllib]'"
+            "Install it with: pip install 'ray[rllib]'"
         )
     if (
         getattr(env, "tensor_type", "numpy") != "numpy"

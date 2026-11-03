@@ -32,6 +32,21 @@ class TestMake:
     def test_version_is_exposed(self):
         assert footsiesgym.__version__
 
+    @pytest.mark.parametrize(
+        "build",
+        [
+            lambda **c: footsiesgym.make(**c),
+            lambda **c: footsiesgym.make(functional=True, **c),
+            lambda **c: footsiesgym.make_class(**c),
+            lambda **c: footsiesgym.make_class(functional=True, **c),
+            lambda **c: FootsiesEnv(config=c),
+        ],
+        ids=["make", "make_functional", "make_class", "make_class_functional", "env"],
+    )
+    def test_c_backend_rejects_windowed(self, build):
+        with pytest.raises(ValueError, match="headless=False needs backend='grpc'"):
+            build(backend="c", headless=False)
+
 
 class TestMakeRLlib:
     def test_rllib_wrapper(self):

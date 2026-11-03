@@ -1,6 +1,73 @@
-# C/CUDA backend: design and tests
+# C/CUDA backend
 
-This document is for developers of FootsiesGym. For the use of the C backend in RL training, refer to the [main README](../../README.md#ccuda-backend).
+## Use
+
+`backend="c"` runs a port of the game in C, in the Python process. It runs on the CPU or on a CUDA GPU. Its observations, rewards and done flags are bit-identical to the Unity game. Thus, a policy that you train with the C backend plays the same in the real game.
+
+The C backend does not need the game server. It needs a C compiler, because FootsiesGym compiles the library on first use. For the GPU, it also needs `nvcc`. FootsiesGym finds `nvcc` through `$CUDA_HOME`, `PATH` or `/usr/local/cuda`.
+
+```python
+# CPU, numpy
+env = footsiesgym.make(backend="c", num_envs=16384, num_threads=24)
+
+# GPU, PyTorch: the observations and rewards stay on the GPU
+env = footsiesgym.make(backend="c", num_envs=65536, device="cuda", tensor_type="torch")
+obs, infos = env.reset()                   # obs["p1"]: torch.float32 (65536, 88) on cuda:0
+actions = {"p1": policy(obs["p1"]), "p2": opponent(obs["p2"])}   # torch tensors on cuda:0
+obs, rewards, terminateds, truncateds, infos = env.step(actions)
+```
+
+- The API is the same as the API of the Unity backend. With `num_envs=1`, the environment is a single-game PettingZoo environment. With more games, each value is an array, and its first axis has the length `num_envs`.
+- When a game ends, `step` starts a new game in its position. The returned observations come from the new game. The rewards and done flags come from the episode that ended.
+- Each `step` returns new arrays. Thus, you can keep the arrays from one step after the next step.
+- The actions can be numpy, torch or JAX arrays. If the actions are on the GPU of the environment, they stay on the GPU.
+- The rewards are float32 values.
+- On the CPU, one thread for each physical core gives the best speed. Set this number with `num_threads`.
+
+### Jitted JAX training loops
+
+With `functional=True`, `make()` returns the environment as pure functions of an explicit state. JAX can compile all of the rollout into one jitted program, as in Sardine's Anakin setup. The functions run on the JAX device: `jax.default_device`, or the device of the jitted function.
+
+```python
+import jax
+import footsiesgym
+
+env = footsiesgym.make(backend="c", num_envs=4096, functional=True)
+
+@jax.jit
+def rollout(key):
+    obs, state, infos = env.reset(key)
+
+    def step(carry, key):
+        state, obs = carry
+        k1, k2 = jax.random.split(key)
+        actions = {                                   # replace with your policy
+            "p1": jax.random.randint(k1, (env.num_envs,), 0, env.action_dim),
+            "p2": jax.random.randint(k2, (env.num_envs,), 0, env.action_dim),
+        }
+        obs, state, rewards, terminateds, truncateds, infos = env.step(key, state, actions)
+        return (state, obs), rewards["p1"]
+
+    _, rewards = jax.lax.scan(step, (state, obs), jax.random.split(key, 1000))
+    return rewards                                    # (1000, 4096)
+
+rewards = rollout(jax.random.key(0))
+```
+
+`step` starts new games when games end. `step_env` does not start new games. `state.t` and `state.episode_id` are arrays with the shape `(num_envs,)`.
+
+Sardine makes the environment from a class (`Cls(**env_config).vectorize(num_envs)`). `make_class` returns this class (refer to [Framework classes](../README.md#framework-classes)):
+
+```python
+from sardine.experiment import Experiment
+
+FootsiesEnv = footsiesgym.make_class(backend="c", functional=True, frame_skip=4)
+Experiment().environment(env=FootsiesEnv, env_config={"max_t": 4000}, num_envs=4096)
+```
+
+## Design
+
+The sections that follow are for developers of FootsiesGym.
 
 The C backend is a port of the Footsies game simulation (Unity's `BattleSimulation` and `Fighter`) and of the environment. The C code is in [`csrc/`](../../csrc/). It compiles for the CPU and for CUDA from one source. For the C design (SIMD batches, GPU kernels, compiler flags), refer to [`csrc/README.md`](../../csrc/README.md).
 

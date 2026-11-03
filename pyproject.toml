@@ -47,19 +47,6 @@ cuda = [
     # JAX on NVIDIA GPUs (the C backend's CUDA build also needs nvcc)
     "jax[cuda12]>=0.11.2; sys_platform == 'linux'",
 ]
-rllib = [
-    "ray[rllib]>=2.46.0",
-    "torch>=2.0.0",
-]
-training = [
-    "wandb>=0.15.0",
-    "torch>=2.0.0",
-]
-jax-training = [
-    "footsies-gym[jax]",
-    "flax>=0.10",
-    "optax>=0.2",
-]
 dev = [
     "pre-commit",
     "pytest",
@@ -68,9 +55,6 @@ dev = [
     "flake8",
     "matplotlib",
     "pandas",
-]
-all = [
-    "footsies-gym[jax,cuda,rllib,training,dev,jax-training]"
 ]
 
 [project.urls]

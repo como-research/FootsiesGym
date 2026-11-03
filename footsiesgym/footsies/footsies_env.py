@@ -96,6 +96,10 @@ class FootsiesEnv(ParallelEnv):
         self.device: str = config.get("device", "cpu")
         if backend == "grpc" and self.device != "cpu":
             raise ValueError("device only applies to backend='c'")
+        if backend == "c" and not config.get("headless", True):
+            raise ValueError(
+                "headless=False needs backend='grpc': only the Unity backend renders"
+            )
         self.tensor_type: str = tensors.check_tensor_type(
             config.get("tensor_type", "numpy")
         )

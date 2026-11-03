@@ -2,6 +2,17 @@
 
 The Unity backend uses the original Footsies game as a game server. The environment controls the server through gRPC.
 
+## Architecture
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/architecture-dark.svg">
+    <img alt="FootsiesGym architecture: a policy sends actions to FootsiesEnv and gets observations. FootsiesEnv controls the Unity game server through gRPC. On first use, BinaryManager downloads, verifies and starts the server automatically." src="../assets/architecture-light.svg">
+  </picture>
+</p>
+
+The solid arrows show the data flow at each step. The dotted arrows occur one time only, on first use. Each `step()` moves the game forward by `frame_skip` frames. With `num_envs > 1`, one batched gRPC call moves all of the games forward.
+
 ## Automatic download and start
 
 You do not have to install the game server. On first use, FootsiesGym does these steps automatically:

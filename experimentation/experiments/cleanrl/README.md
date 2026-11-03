@@ -16,10 +16,11 @@ This directory has two PPO examples:
 1. Install the dependencies:
 
    ```bash
-   uv sync --extra cuda --extra jax-training
+   uv sync --extra cuda
+   uv pip install --python .venv "flax>=0.10" "optax>=0.2"
    ```
 
-   The `cuda` extra installs JAX with CUDA. Without a GPU, use `uv sync --extra jax-training`.
+   The `cuda` extra installs JAX with CUDA. Without a GPU, use `uv sync --extra jax`.
 
 2. Train the policy:
 
@@ -58,7 +59,8 @@ Self-play PPO training using a single vectorized FootsiesEnv server. Both agents
 ### Setup
 
 ```bash
-uv sync --extra training
+uv sync
+uv pip install --python .venv "torch>=2.0.0" "wandb>=0.15.0"
 ```
 
 Requires `wandb` for logging and sweep orchestration. Log in first:

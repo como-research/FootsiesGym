@@ -115,6 +115,10 @@ def _resolve(config: dict) -> dict:
         )
     config = {"platform": "linux", "launch_binaries": True, **config}
     backend = config.get("backend", "grpc")
+    if backend == "c" and not config.get("headless", True):
+        raise ValueError(
+            "headless=False needs backend='grpc': only the Unity backend renders"
+        )
     if config.get("functional", False):
         if backend != "c":
             raise ValueError("functional=True needs backend='c'")
