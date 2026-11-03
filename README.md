@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/footsies_trim.gif" alt="Footsies gameplay" />
+  <img src="https://raw.githubusercontent.com/como-research/FootsiesGym/main/assets/footsies_trim.gif" alt="Footsies gameplay" />
 </p>
 
 FootsiesGym is a two-player zero-sum reinforcement learning benchmark. It uses the [Footsies](https://hifight.github.io/footsies/) fighting game by HiFight. For more data, refer to the paper: [FootsiesGym: A Fighting Game Benchmark for Two-Player Zero-Sum Imperfect-Information Games](https://arxiv.org/abs/2607.06514).
@@ -23,12 +23,12 @@ The environment is a PettingZoo `ParallelEnv`. It can run the game with one of t
 
 | Topic | Location |
 |-------|----------|
-| Configuration, actions, observations, rewards, framework classes | [`footsiesgym/README.md`](footsiesgym/README.md) |
-| C/CUDA backend: use, JAX training loops, design, tests | [`footsiesgym/c/README.md`](footsiesgym/c/README.md) |
-| C source code | [`csrc/README.md`](csrc/README.md) |
-| Unity game server: architecture, platforms, manual start | [`binaries/README.md`](binaries/README.md) |
-| Training examples | [`experimentation/README.md`](experimentation/README.md) |
-| Benchmark scripts | [`benchmarking/README.md`](benchmarking/README.md) |
+| Configuration, actions, observations, rewards, framework classes | [`footsiesgym/README.md`](https://github.com/como-research/FootsiesGym/blob/main/footsiesgym/README.md) |
+| C/CUDA backend: use, JAX training loops, design, tests | [`footsiesgym/c/README.md`](https://github.com/como-research/FootsiesGym/blob/main/footsiesgym/c/README.md) |
+| C source code | [`csrc/README.md`](https://github.com/como-research/FootsiesGym/blob/main/csrc/README.md) |
+| Unity game server: architecture, platforms, manual start | [`binaries/README.md`](https://github.com/como-research/FootsiesGym/blob/main/binaries/README.md) |
+| Training examples | [`experimentation/README.md`](https://github.com/como-research/FootsiesGym/blob/main/experimentation/README.md) |
+| Benchmark scripts | [`benchmarking/README.md`](https://github.com/como-research/FootsiesGym/blob/main/benchmarking/README.md) |
 
 ## Installation
 
@@ -54,7 +54,7 @@ uv sync --all-extras                    # or select extras: uv sync --extra cuda
 | `cuda` | JAX with CUDA (Linux) | JAX on an NVIDIA GPU |
 | `dev` | pytest, black, isort, matplotlib, pandas | The tests, the benchmark figures |
 
-Install other packages yourself: PyTorch for `tensor_type="torch"`, and `ray[rllib]` for `wrap_rllib`. For the dependencies of the training examples, refer to [`experimentation/README.md`](experimentation/README.md).
+Install other packages yourself: PyTorch for `tensor_type="torch"`, and `ray[rllib]` for `wrap_rllib`. For the dependencies of the training examples, refer to [`experimentation/README.md`](https://github.com/como-research/FootsiesGym/blob/main/experimentation/README.md).
 
 The C backend compiles its library on first use. It needs `gcc` or `clang`. For `device="cuda"`, it also needs the NVIDIA driver and `nvcc`.
 
@@ -87,7 +87,7 @@ env = footsiesgym.make(backend="c", num_envs=65536, device="cuda", tensor_type="
 env = footsiesgym.make(backend="c", num_envs=4096, functional=True)                      # pure functions for jitted JAX loops
 ```
 
-For more data, refer to [`footsiesgym/c/README.md`](footsiesgym/c/README.md).
+For more data, refer to [`footsiesgym/c/README.md`](https://github.com/como-research/FootsiesGym/blob/main/footsiesgym/c/README.md).
 
 ## Configuration
 
@@ -104,7 +104,7 @@ Give the options to `make()` as keyword arguments or in a config dictionary:
 | `action_delay` | `8` | Number of frames before a selected action starts |
 | `headless` | `True` | Runs the Unity server headless or in a window (only for `backend="grpc"`) |
 
-For all options, and for the actions, observations and rewards, refer to [`footsiesgym/README.md`](footsiesgym/README.md).
+For all options, and for the actions, observations and rewards, refer to [`footsiesgym/README.md`](https://github.com/como-research/FootsiesGym/blob/main/footsiesgym/README.md).
 
 ### Rendering
 
@@ -114,14 +114,14 @@ Only the Unity backend can render. Set `headless=False` to show the game in a wi
 env = footsiesgym.make(headless=False)
 ```
 
-To watch at game speed, wait `frame_skip / 60` seconds between steps, as in [`play_unity.py`](experimentation/experiments/cleanrl/play_unity.py).
+To watch at game speed, wait `frame_skip / 60` seconds between steps, as in [`play_unity.py`](https://github.com/como-research/FootsiesGym/blob/main/experimentation/experiments/cleanrl/play_unity.py).
 
 ## Throughput
 
 <table align="center">
   <tr>
-    <td align="center" width="50%"><img src="assets/throughput_scaling_linux.png" alt="Throughput on Linux: environment steps per second for each number of parallel environments, with 1 to 4 game-server processes. The maximum is approximately 50,000 steps per second."></td>
-    <td align="center" width="50%"><img src="assets/throughput_scaling_mac.png" alt="Throughput on macOS: environment steps per second for each number of parallel environments, with 1 to 4 game-server processes. The maximum is more than 70,000 steps per second."></td>
+    <td align="center" width="50%"><img src="https://raw.githubusercontent.com/como-research/FootsiesGym/main/assets/throughput_scaling_linux.png" alt="Throughput on Linux: environment steps per second for each number of parallel environments, with 1 to 4 game-server processes. The maximum is approximately 50,000 steps per second."></td>
+    <td align="center" width="50%"><img src="https://raw.githubusercontent.com/como-research/FootsiesGym/main/assets/throughput_scaling_mac.png" alt="Throughput on macOS: environment steps per second for each number of parallel environments, with 1 to 4 game-server processes. The maximum is more than 70,000 steps per second."></td>
   </tr>
   <tr>
     <td align="center"><b>Linux</b></td>
@@ -132,12 +132,12 @@ To watch at game speed, wait `frame_skip / 60` seconds between steps, as in [`pl
 The figures show the Unity backend: environment steps per second for each value of `num_envs`, with $P$ game-server processes in parallel.
 
 <p align="center">
-  <img src="assets/throughput_c.png" width="60%" alt="Throughput of the C backend: environment steps per second for each number of parallel environments. On one RTX 3090, jitted JAX gives a maximum of approximately 150 million steps per second and PyTorch approximately 120 million. On 24 CPU threads, the maximum is approximately 33 million. The Unity server with 4 processes gives a maximum of approximately 50 thousand.">
+  <img src="https://raw.githubusercontent.com/como-research/FootsiesGym/main/assets/throughput_c.png" width="60%" alt="Throughput of the C backend: environment steps per second for each number of parallel environments. On one RTX 3090, jitted JAX gives a maximum of approximately 150 million steps per second and PyTorch approximately 120 million. On 24 CPU threads, the maximum is approximately 33 million. The Unity server with 4 processes gives a maximum of approximately 50 thousand.">
 </p>
 
 The second figure shows the C backend on one RTX 3090 and on the 24 cores of a Threadripper 3960X. On the GPU, jitted JAX gives approximately 154M steps per second with 1M games. PyTorch gives approximately 118M. On the CPU, the C backend gives approximately 33M steps per second with 16K to 64K games. With more games, the data does not fit in the CPU cache, and the speed decreases. The dashed line is the best Unity configuration.
 
-To get these results again, refer to [`benchmarking/`](benchmarking/). The benchmarks need the `dev` extra.
+To get these results again, refer to [`benchmarking/`](https://github.com/como-research/FootsiesGym/tree/main/benchmarking/). The benchmarks need the `dev` extra.
 
 ## Development
 
@@ -148,7 +148,7 @@ uv run pytest                 # all tests: the slow tests start the Unity game s
 uv build                      # the wheel and the source distribution
 ```
 
-If an extra or a GPU is not available, pytest skips the tests that need it. For the tests of the C backend, refer to [`footsiesgym/c/README.md`](footsiesgym/c/README.md#tests).
+If an extra or a GPU is not available, pytest skips the tests that need it. For the tests of the C backend, refer to [`footsiesgym/c/README.md`](https://github.com/como-research/FootsiesGym/blob/main/footsiesgym/c/README.md#tests).
 
 ## Citation
 
@@ -163,4 +163,4 @@ If an extra or a GPU is not available, pytest skips the tests that need it. For 
 
 ## License
 
-[GNU General Public License v3.0](LICENSE.txt). FootsiesGym is based on the open-source [Footsies](https://github.com/hifight/Footsies) game by HiFight.
+[GNU General Public License v3.0](https://github.com/como-research/FootsiesGym/blob/main/LICENSE.txt). FootsiesGym is based on the open-source [Footsies](https://github.com/hifight/Footsies) game by HiFight.
